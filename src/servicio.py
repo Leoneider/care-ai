@@ -64,20 +64,30 @@ def thread_de(message_id: str) -> str:
     return "care-" + hashlib.sha1(message_id.encode("utf-8")).hexdigest()[:16]
 
 
-def _config(thread_id: str, correo: dict[str, Any] | None = None) -> dict[str, Any]:
+def _traza(thread_id: str, etapa: str, asunto: str = "", **extra: Any) -> dict[str, Any]:
+    """Nombre, tags y metadata de un tramo en LangSmith.
+
+    Cada tramo es una traza aparte (se separan por el `interrupt`, o corren fuera
+    del grafo). El prefijo numerado dice en que punto del caso va, y `thread_id`
+    en la metadata es la clave con que la pestana Threads de LangSmith las agrupa.
+    """
+    modo = "fake" if os.getenv("CARE_FAKE_LLM") == "1" else "modelo-real"
+    return {
+        "run_name": f"care-ai | {etapa} | {asunto or '(sin asunto)'}",
+        "tags": ["care-ai", etapa.split(" ", 1)[-1], modo],
+        "metadata": {"thread_id": thread_id, "modo_llm": modo, **extra},
+    }
+
+
+def _config(thread_id: str, etapa: str = "", asunto: str = "", **extra: Any) -> dict[str, Any]:
     cfg: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
-    if correo is not None:
-        modo = "fake" if os.getenv("CARE_FAKE_LLM") == "1" else "modelo-real"
-        cfg |= {
-            "run_name": f"care-ai | {correo.get('asunto', '(sin asunto)')}",
-            "tags": ["care-ai", "fase1", modo],
-            "metadata": {
-                "message_id": correo.get("message_id", ""),
-                "remitente": correo.get("remitente", ""),
-                "modo_llm": modo,
-            },
-        }
+    if etapa:
+        cfg |= _traza(thread_id, etapa, asunto, **extra)
     return cfg
+
+
+def _asunto(thread_id: str) -> str:
+    return (db.obtener(thread_id) or {}).get("asunto", "")
 
 
 # --------------------------------------------------------------------------- #
@@ -101,7 +111,9 @@ def procesar_correo(correo: dict[str, Any]) -> dict[str, Any]:
         return {"estado": "duplicado", "thread_id": thread_id, "message_id": message_id}
 
     try:
-        estado = app_care().invoke({"correo": correo}, config=_config(thread_id, correo))
+        cfg = _config(thread_id, "1 ingesta", correo.get("asunto", ""),
+                      message_id=message_id, remitente=correo.get("remitente", ""))
+        estado = app_care().invoke({"correo": correo}, config=cfg)
     except Exception as exc:
         db.liberar(message_id)
         return {"estado": "error", "thread_id": thread_id, "message_id": message_id, "error": str(exc)}
@@ -205,7 +217,7 @@ def resolver(
         raise ValueError(f"Decision invalida: {decision!r}. Esperaba una de {DECISIONES}.")
 
     app = app_care()
-    cfg = _config(thread_id)
+    cfg = _config(thread_id, "2 decision", _asunto(thread_id), decision=decision)
     if not _en_pausa(app, cfg, "revision_care"):
         # Doble submit, o dos ejecutivos sobre el mismo caso. Reanudar un thread
         # sin interrupt lo volveria a correr desde el principio.
@@ -242,7 +254,7 @@ def cerrar(thread_id: str, decision: str, comentario: str = "") -> dict[str, Any
         raise ValueError(f"Decision de cierre invalida: {decision!r}. Esperaba una de {DECISIONES_CIERRE}.")
 
     app = app_care()
-    cfg = _config(thread_id)
+    cfg = _config(thread_id, "2b cierre", _asunto(thread_id), decision=decision)
     if not _en_pausa(app, cfg, "revision_cierre"):
         return {"estado": "ya_resuelto", "thread_id": thread_id}
 
@@ -279,13 +291,15 @@ def _escribir_en_gmail(thread_id: str, final: dict[str, Any]) -> dict[str, Any]:
     Nunca hace fallar el cierre: el caso ya se resolvio y se registro. Un fallo
     aqui deja al ejecutivo sin borrador, no sin caso.
     """
-    borrador, etiqueta = _borrador_al_cliente(final)
+    borrador, etiqueta = _borrador_al_cliente(thread_id, final)
     db.registrar_borrador(thread_id, borrador["estado"], borrador.get("draft_id", "") or "")
     db.registrar_etiqueta(thread_id, etiqueta)
     return {"borrador": borrador, "etiqueta": etiqueta}
 
 
-def _borrador_al_cliente(final: dict[str, Any]) -> tuple[dict[str, Any], str]:
+def _borrador_al_cliente(thread_id: str, final: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    import langsmith
+
     from . import respuesta
 
     caso = final.get("caso", {})
@@ -298,7 +312,13 @@ def _borrador_al_cliente(final: dict[str, Any]) -> tuple[dict[str, Any], str]:
         # El orden importa: redactar antes de abrir el cliente de Gmail, para que
         # un fallo del modelo no llegue a tocar el buzon.
         acciones = respuesta.acciones_de_correo(resultado.get("acciones", []))
-        texto = respuesta.redactar(caso, acciones, correo.get("cuerpo", ""), resultado=resultado)
+        # Corre fuera del grafo: sin este run raiz, LangSmith la muestra suelta
+        # como "RunnableSequence" (el `modelo | parser` de with_structured_output).
+        t = _traza(thread_id, "3 respuesta", caso.get("asunto", "") or correo.get("asunto", ""))
+        with langsmith.trace(t["run_name"], tags=t["tags"], metadata=t["metadata"],
+                             inputs={"caso_id": caso.get("caso_id", ""), "acciones": acciones}) as run:
+            texto = respuesta.redactar(caso, acciones, correo.get("cuerpo", ""), resultado=resultado)
+            run.end(outputs={"asunto": texto.asunto, "cuerpo": texto.cuerpo})
         from . import gmail_ingesta
 
         svc = gmail_ingesta.cliente()
