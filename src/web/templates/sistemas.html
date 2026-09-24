@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block titulo %}Sistemas &middot; Bandeja Care{% endblock %}
+
+{% macro tocado(ref) -%}{{ 'tocado' if datos and ref in datos.modificadas }}{%- endmacro %}
+
+{% block contenido %}
+<h1>Sistemas</h1>
+<p class="sub">
+  Mini sistema legado de la POC: CRM, facturacion, contratos, red y mesa de servicio.
+  Lo que Care AI cambia al ejecutar un caso se ve aqui, y queda en la bitacora de abajo.
+  Las filas con borde azul fueron modificadas por el copiloto.
+</p>
+
+{% if reiniciado >= 0 %}
+  <div class="aviso">
+    <b>Demo reiniciada.</b> Se archivaron {{ reiniciado }} caso(s) y los sistemas volvieron a los datos iniciales.
+    Para arrancar, manda un correo nuevo con <span class="mono">CARE-TEST</span> en el asunto.
+  </div>
+{% endif %}
+
+<nav class="cuentas" aria-label="Cuentas">
+  {% for c in cuentas %}
+    <a href="/sistemas?cuenta={{ c.cuenta_id }}" class="{{ 'activo' if c.cuenta_id == elegida }}">
+      {{ c.razon_social }}<small>{{ c.cuenta_id }} &middot; {{ c.dominio }}</small>
+    </a>
+  {% endfor %}
+</nav>
+
+{% if not datos %}
+  <div class="vacio"><p>No hay cuentas en el mini sistema.</p></div>
+{% else %}
+
+<div class="rejilla">
+  <section class="tarjeta">
+    <div class="encabezado-tarjeta"><h2>CRM &middot; cuenta</h2></div>
+    <dl class="datos">
+      <dt>Cuenta</dt><dd>{{ datos.cuenta.cuenta_id }}</dd>
+      <dt>Razon social</dt><dd>{{ datos.cuenta.razon_social }}</dd>
+      <dt>Segmento</dt><dd>{{ datos.cuenta.segmento }}</dd>
+      <dt>Estado</dt><dd>{{ datos.cuenta.estado }}</dd>
+    </dl>
+    <div class="etiqueta">Contactos</div>
+    <ul class="checks">
+      {% for c in datos.contactos %}
+      <li><span class="pill {{ 'ok' if c.autorizado else 'alerta' }}">{{ 'autorizado' if c.autorizado else 'no autorizado' }}</span>
+          <span class="mono">{{ c.correo }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="tarjeta">
+    <div class="encabezado-tarjeta"><h2>Contratos</h2></div>
+    {% if datos.contrato %}
+    <dl class="datos">
+      <dt>Contrato</dt><dd>{{ datos.contrato.contrato }}</dd>
+      <dt>Vigente hasta</dt><dd>{{ datos.contrato.vigencia_hasta }}</dd>
+      <dt>Valor mensual</dt><dd>{{ datos.contrato.valor_mensual_pactado | cop }} COP</dd>
+      <dt>Upgrade sin adendum</dt><dd>{{ 'si' if datos.contrato.permite_upgrade_sin_adendum else 'no' }}</dd>
+      <dt>Permanencia</dt><dd>{{ datos.contrato.clausula_permanencia_meses }} meses</dd>
+    </dl>
+    {% else %}<p class="sub" style="margin:0">Sin contrato registrado.</p>{% endif %}
+  </section>
+</div>
+
+<section class="seccion">
+  <h2>Red &middot; servicios</h2>
+  <div class="tabla-scroll">
+  <table class="compacta">
+    <thead><tr><th>Servicio</th><th>Sede</th><th style="text-align:right">Ancho de banda</th><th>Nodo</th><th style="text-align:right">Libre en nodo</th></tr></thead>
+    <tbody>
+    {% for s in datos.servicios %}
+      <tr class="{{ tocado(s.servicio_id) }}">
+        <td class="mono">{{ s.servicio_id }}</td>
+        <td>{{ s.sede }}<br><span class="mono" style="color:var(--tenue)">{{ s.producto }}</span></td>
+        <td class="num"><b>{{ s.ancho_banda_mbps }} Mbps</b></td>
+        <td class="mono">{{ s.nodo }} <span class="pill {{ 'ok' if s.estado_nodo == 'saludable' else 'falla' }}">{{ s.estado_nodo }}</span></td>
+        <td class="num">{{ s.capacidad_libre_mbps }} Mbps</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="seccion">
+  <h2>Facturacion</h2>
+  <div class="tabla-scroll">
+  <table class="compacta">
+    <thead><tr><th>Factura</th><th>Periodo</th><th style="text-align:right">Facturado</th><th style="text-align:right">Notas credito</th><th style="text-align:right">Neto</th><th style="text-align:right">Vs. pactado</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for f in datos.facturas %}
+      <tr class="{{ tocado(f.factura) }}">
+        <td class="mono">{{ f.factura }}</td>
+        <td class="mono">{{ f.periodo }}</td>
+        <td class="num">{{ f.valor | cop }}</td>
+        <td class="num">{{ ('-' ~ (f.ajustes | cop)) if f.ajustes else '-' }}</td>
+        <td class="num"><b>{{ f.valor_neto | cop }}</b></td>
+        <td class="num">
+          {% if f.diferencia is none %}-{% elif f.diferencia == 0 %}<span class="pill ok">cuadra</span>
+          {% else %}<span class="pill alerta">{{ '+' if f.diferencia > 0 }}{{ f.diferencia | cop }}</span>{% endif %}
+        </td>
+        <td>{{ f.estado }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if datos.notas_credito %}
+  <div class="etiqueta">Notas credito emitidas</div>
+  <ul class="checks">
+    {% for n in datos.notas_credito %}
+    <li><span class="pill ok">{{ n.nota }}</span>
+        <span><span class="mono">{{ n.valor | cop }} COP</span> contra <span class="mono">{{ n.factura }}</span> &middot; {{ n.motivo }}
+        <span class="mono" style="color:var(--tenue)">&middot; {{ n.creada_en | fecha }}</span></span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
+
+<section class="seccion">
+  <h2>Mesa de servicio &middot; tickets</h2>
+  {% if not datos.tickets %}
+    <p class="sub">Sin tickets.</p>
+  {% else %}
+  <div class="tabla-scroll">
+  <table class="compacta">
+    <thead><tr><th>Ticket</th><th>Asunto</th><th>Grupo</th><th>Estado</th><th style="text-align:right">Actualizado</th></tr></thead>
+    <tbody>
+    {% for t in datos.tickets %}
+      <tr class="{{ tocado(t.ticket) }}">
+        <td class="mono">{{ t.ticket }}<br><span style="color:var(--tenue)">{{ t.tema }}</span></td>
+        <td>
+          {{ t.asunto }}
+          {% if t.notas %}
+          <details style="margin:4px 0 0">
+            <summary>{{ t.notas | length }} nota(s)</summary>
+            <ul class="checks" style="margin-top:6px">
+              {% for n in t.notas %}<li><span class="mono" style="color:var(--tenue)">{{ n.creada_en | fecha }}</span> {{ n.texto }}</li>{% endfor %}
+            </ul>
+          </details>
+          {% endif %}
+        </td>
+        <td>{{ t.grupo or '-' }}</td>
+        <td><span class="pill {{ 'ok' if t.estado == 'resuelto' else ('neutro' if t.estado == 'en_espera' else 'alerta') }}">{{ t.estado }}</span></td>
+        <td class="num">{{ t.actualizado_en | fecha }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
+
+<section class="seccion">
+  <h2>Bitacora de operaciones</h2>
+  <p class="sub">Cada escritura en los sistemas, la mas reciente arriba.</p>
+  {% if not datos.operaciones %}
+    <p class="sub">Todavia no se ha escrito nada en esta cuenta.</p>
+  {% else %}
+  <div class="tabla-scroll">
+  <table class="compacta">
+    <thead><tr><th>Cuando</th><th>Operacion</th><th>Referencia</th><th>Cambio</th><th>Caso</th></tr></thead>
+    <tbody>
+    {% for o in datos.operaciones %}
+      <tr>
+        <td class="num" style="text-align:left">{{ o.ts | fecha }}</td>
+        <td><span class="pill neutro">{{ o.sistema }}</span> <span class="mono">{{ o.operacion }}</span></td>
+        <td class="mono">{{ o.referencia }}</td>
+        <td>
+          {% for c in o.cambios %}
+            <div class="cambio">{{ c.campo }}: {% if c.antes is not none %}<s>{{ c.antes }}</s> &rarr; {% endif %}<b>{{ c.despues }}</b></div>
+          {% endfor %}
+          {% if o.detalle %}<div style="color:var(--tenue); font-size:12.5px">{{ o.detalle }}</div>{% endif %}
+        </td>
+        <td class="mono">{{ o.caso_id or '-' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
+
+<form class="restaurar" method="post" action="/demo/reiniciar">
+  <input type="hidden" name="cuenta" value="{{ elegida }}">
+  <span><b>Reiniciar la demo desde cero:</b> vacia Pendientes, En verificacion y Resueltos,
+    y devuelve los sistemas a los datos iniciales.</span>
+  <label><input type="checkbox" name="confirmo" value="1" required> Entiendo que se pierde lo hecho</label>
+  <button type="submit" class="peligro">Reiniciar demo</button>
+</form>
+
+{% endif %}
+{% endblock %}

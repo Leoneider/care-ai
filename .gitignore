@@ -1,0 +1,32 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Dataset de revisiones: crece con cada caso y lleva datos de clientes.
+# Se respalda aparte, no como commits.
+feedback.jsonl
+
+# Bandeja, checkpoints del grafo y salida de src/feedback.py.
+# data/care.db lleva correos de clientes y los casos en curso: se respalda,
+# no se versiona.
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Credenciales de la Gmail API. El secreto de cliente OAuth y el token: quien
+# tenga cualquiera de los dos entra al buzon.
+# El client_secret_*.json es el nombre con el que Google lo descarga, y es el
+# que mas se cuela en un commit justamente por no llamarse credentials.json.
+credentials.json
+client_secret*.json
+token.json
+
+# Logs y PIDs del arranque local (scripts/care.ps1).
+data/logs/
+data/.pids
+
+# Persistencia local de `langgraph dev` (LangGraph Studio). Es una bandeja
+# aparte de data/care.db: se regenera sola y no se versiona.
+.langgraph_api/

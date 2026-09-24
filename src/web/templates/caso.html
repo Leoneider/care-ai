@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block titulo %}{{ caso.caso_id }} &middot; Bandeja Care{% endblock %}
+
+{% block contenido %}
+<h1>{{ caso.asunto or '(sin asunto)' }}</h1>
+<p class="sub">
+  <span class="pill p{{ caso.prioridad }}">P{{ caso.prioridad }}</span>
+  <span class="mono">{{ caso.caso_id }}</span> &middot;
+  {{ caso.razon_social }} <span class="mono">({{ caso.cuenta }})</span> &middot;
+  confianza global <span class="mono">{{ '%.2f'|format(caso.confianza_global) }}</span>
+  {% if caso.requiere_atencion %} &middot; <span class="pill alerta">requiere atencion</span>{% endif %}
+</p>
+
+{% if error %}
+  <div class="aviso alto">
+    <b>No se aplico la decision.</b> {{ error }}
+  </div>
+{% endif %}
+
+{% macro estado_accion(e) -%}
+  {%- set clase = {'ejecutada': 'ok', 'consultada': 'neutro', 'error': 'falla'}.get(e, 'alerta') -%}
+  <span class="pill {{ clase }}">{{ e }}</span>
+{%- endmacro %}
+
+{% macro bloque_ejecucion(resultado, verificacion) %}
+  {% if resultado and resultado.acciones is defined %}
+  <div class="etiqueta">Lo que se ejecuto en los sistemas</div>
+  <div class="tabla-scroll">
+  <table class="compacta">
+    <thead><tr><th>Accion</th><th>Estado</th><th>Detalle</th></tr></thead>
+    <tbody>
+    {% for a in resultado.acciones %}
+      <tr>
+        <td><span class="mono">{{ a.codigo }}</span><br><span class="mono" style="color:var(--tenue)">[{{ a.solicitud }}] {{ a.sistema }}</span></td>
+        <td>{{ estado_accion(a.estado) }}</td>
+        <td class="det">{{ a.detalle }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="3" class="det">No quedo ninguna accion aprobada.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% if verificacion and verificacion.checks %}
+  <div class="etiqueta">Verificacion: se volvio a leer cada sistema</div>
+  <ul class="checks">
+    {% for c in verificacion.checks %}
+    <li><span class="pill {{ 'ok' if c.ok else 'falla' }}">{{ 'verificado' if c.ok else 'no coincide' }}</span>
+        <span><span class="mono">{{ c.codigo }}</span> &middot; {{ c.detalle }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% set tks = (resultado.cierre.tickets if resultado.cierre is defined else resultado.tickets) or [] %}
+  {% if tks %}
+  <div class="etiqueta">Tickets de seguimiento</div>
+  <div class="campos">
+    {% for t in tks %}
+      <span class="chip"><b>{{ t.ticket }}</b> [{{ t.solicitud }}] {{ t.tema }}{% if t.estado is defined %} &middot; {{ t.estado }}{% endif %}</span>
+    {% endfor %}
+    <a href="/sistemas?cuenta={{ caso.cuenta }}" style="font-size:13px; align-self:center">ver en Sistemas &rarr;</a>
+  </div>
+  {% endif %}
+  {% endif %}
+{% endmacro %}
+
+{% if etapa == 'verificacion' %}
+  <section class="ejecucion riesgo">
+    <h2>Ejecutado y verificado: falta tu cierre</h2>
+    <p class="sub" style="margin:0">
+      Decision de la revision: <span class="mono">{{ fila.decision or '-' }}</span>.
+      El caso no se cerro solo por:
+    </p>
+    <ul class="motivos">
+      {% for m in (verificacion.motivos if verificacion else []) %}<li>{{ m }}</li>{% endfor %}
+    </ul>
+    {{ bloque_ejecucion(resultado, verificacion) }}
+
+    <form method="post" action="/caso/{{ thread_id }}/cerrar">
+      <label class="etiqueta" for="comentario_cierre">Comentario de cierre</label>
+      <textarea id="comentario_cierre" name="comentario"
+                placeholder="Que verificaste, o que queda pendiente si dejas el ticket abierto.">{{ comentario_previo or '' }}</textarea>
+      <div class="acciones-pie">
+        <button class="primario" name="decision" value="cerrar">Cerrar caso y dar el correo por terminado</button>
+        <button name="decision" value="dejar_abierto">Dejar ticket abierto</button>
+        <span class="nota-pie">
+          Cerrar resuelve los tickets de seguimiento, deja la respuesta de cierre como borrador
+          y etiqueta el hilo en Gmail.
+        </span>
+      </div>
+    </form>
+  </section>
+{% elif etapa == 'cerrado' %}
+  <div class="aviso">
+    <b>Caso ya resuelto.</b>
+    Decision registrada: <span class="mono">{{ fila.decision or '-' }}</span>.
+    {% if fila.comentario %}<br>Comentario: &ldquo;{{ fila.comentario }}&rdquo;{% endif %}
+    {% if resultado and resultado.motivo %}<br>Descartado: {{ resultado.motivo }}{% endif %}
+  </div>
+
+  {% if resultado and resultado.cierre is defined %}
+  <section class="ejecucion {{ 'cerrado' if resultado.cierre.estado == 'cerrado' else 'riesgo' }}">
+    <h2>
+      {% if resultado.cierre.estado == 'cerrado' %}Correo terminado{% else %}Ticket abierto{% endif %}
+      <span class="pill {{ 'ok' if resultado.cierre.modo == 'automatico' else 'neutro' }}" style="margin-left:6px">
+        cierre {{ resultado.cierre.modo }}</span>
+    </h2>
+    {% if resultado.cierre.comentario %}<p class="sub" style="margin:4px 0 0">&ldquo;{{ resultado.cierre.comentario }}&rdquo;</p>{% endif %}
+    {% if verificacion and verificacion.motivos %}
+      <p class="sub" style="margin:8px 0 0">Paso por revision de cierre porque:</p>
+      <ul class="motivos">{% for m in verificacion.motivos %}<li>{{ m }}</li>{% endfor %}</ul>
+    {% endif %}
+    {{ bloque_ejecucion(resultado, verificacion) }}
+
+    <div class="etiqueta">Respuesta al cliente</div>
+    <div style="font-size:13.5px">
+      {% if fila.borrador_estado == 'creado' %}
+        <b>Borrador de respuesta creado</b> en el hilo de Gmail: revisalo y mandalo tu.
+      {% elif fila.borrador_estado == 'error' %}
+        <b>No se pudo crear el borrador.</b> El cierre si quedo aplicado; revisa el log.
+      {% elif fila.borrador_estado == 'desactivado' %}
+        Los borradores estan apagados (<span class="mono">CARE_BORRADOR_GMAIL</span>): no se escribio en Gmail.
+      {% else %}
+        Sin borrador.
+      {% endif %}
+      {% if fila.etiqueta_cierre and not fila.etiqueta_cierre.startswith('error') %}
+        <br>Hilo etiquetado como <span class="mono">{{ fila.etiqueta_cierre }}</span>.
+      {% elif fila.etiqueta_cierre %}
+        <br>No se pudo etiquetar el hilo: {{ fila.etiqueta_cierre }}
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+{% endif %}
+
+<details>
+  <summary>Correo original de {{ correo.remitente or '?' }}</summary>
+  <pre class="cuerpo">{{ correo.cuerpo or '(sin cuerpo)' }}</pre>
+</details>
+
+<form method="post" action="/caso/{{ thread_id }}/decidir">
+{% for s in caso.solicitudes %}
+  <section class="tarjeta {{ 'atencion' if s.requiere_atencion }}">
+    <div class="encabezado-tarjeta">
+      <h2><span class="mono" style="color:var(--tenue)">[{{ s.id }}]</span> {{ s.tipo }}</h2>
+      <span class="pill neutro">confianza {{ '%.2f'|format(s.confianza) }}</span>
+    </div>
+    <div>{{ s.resumen }}</div>
+    <div class="cita">&ldquo;{{ s.texto_fuente }}&rdquo;</div>
+
+    {% if s.datos or s.faltantes %}
+    <div class="campos">
+      {% for k, v in s.datos.items() %}<span class="chip"><b>{{ k }}</b> {{ v }}</span>{% endfor %}
+      {% for f in s.faltantes %}<span class="chip alerta"><b>falta</b> {{ f }}</span>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="etiqueta">Validaciones deterministas</div>
+    <ul class="checks">
+      {% for v in s.validaciones %}
+      <li>
+        <span class="pill {{ v.resultado }}">{{ v.resultado }}</span>
+        <span class="{{ 'bloqueante' if v.bloqueante }}">
+          <span class="mono">{{ v.check }}</span> &middot; {{ v.detalle }}
+          {% if v.bloqueante %}<span class="pill falla" style="margin-left:4px">bloqueante</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <div class="etiqueta">
+      Acciones propuestas
+      {% if pendiente %}<span style="text-transform:none; letter-spacing:0; font-weight:400">
+        &mdash; desmarca o edita para que la decision se registre como <span class="mono">editar</span>
+      </span>{% endif %}
+    </div>
+    {% if not s.acciones %}
+      <p class="sub" style="margin:0">El modelo no propuso ninguna accion valida del catalogo.</p>
+    {% endif %}
+    {% for a in s.acciones %}
+    {% set ref = s.id ~ '::' ~ loop.index0 %}
+    <div class="accion">
+      <input type="checkbox" name="sel" value="{{ ref }}"
+             {{ 'checked' if sel_previa is not defined or sel_previa is none or ref in sel_previa }}
+             {{ 'disabled' if not pendiente }} aria-label="Incluir {{ a.codigo }}">
+      <div>
+        <div class="codigo">{{ a.codigo }} <span class="sistema">{{ a.sistema }}</span></div>
+        <input type="text" name="desc::{{ ref }}"
+               value="{{ (valores or {}).get('desc::' ~ ref, a.descripcion) }}"
+               {{ 'readonly' if not pendiente }} style="margin-top:5px">
+        {% if a.parametros %}
+        <div class="params">
+          {% for k, v in a.parametros.items() %}
+          <label>{{ k }}
+            <input type="text" name="par::{{ ref }}::{{ k }}"
+                   value="{{ (valores or {}).get('par::' ~ ref ~ '::' ~ k, v) }}"
+                   {{ 'readonly' if not pendiente }}>
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if s.requiere_atencion %}
+      <div class="aviso" style="border-left-color:var(--alerta); margin-bottom:0">
+        <b>Atencion:</b> {{ s.motivo_atencion }}
+      </div>
+    {% endif %}
+  </section>
+{% endfor %}
+
+{% if pendiente %}
+  {% if bloqueantes %}
+  <div class="bloqueo">
+    <div class="bloqueo-titulo">
+      {{ bloqueantes | length }} validacion(es) bloqueante(s) en este caso
+    </div>
+    <ul>
+      {% for v in bloqueantes %}<li><span class="mono">{{ v.check }}</span> &middot; {{ v.detalle }}</li>{% endfor %}
+    </ul>
+    <label class="confirmar">
+      <input type="checkbox" name="confirmo_bloqueo" value="1" {{ 'checked' if confirmado }}>
+      <span>Apruebo pese al bloqueo, bajo mi criterio. El comentario es obligatorio.</span>
+    </label>
+  </div>
+  {% endif %}
+
+  <label class="etiqueta" for="comentario">
+    Comentario del ejecutivo{% if bloqueantes %} <span style="color:var(--falla)">(obligatorio)</span>{% endif %}
+  </label>
+  <textarea id="comentario" name="comentario"
+            placeholder="Por que se aprueba, que se cambio, o por que se rechaza. Va al dataset de evaluacion."
+            >{{ comentario_previo or '' }}</textarea>
+
+  <div class="acciones-pie">
+    <button class="primario" name="decision" value="aprobar">Aprobar</button>
+    <button name="decision" value="editar">Guardar edicion</button>
+    <button class="peligro" name="decision" value="rechazar">Rechazar</button>
+    <span class="nota-pie">
+      Aprobar con acciones desmarcadas o con campos modificados se registra
+      igual como <span class="mono">editar</span>: el dataset guarda propuesto vs. final.
+    </span>
+  </div>
+{% endif %}
+</form>
+
+<a class="volver" href="/">&larr; Volver a la bandeja</a>
+{% endblock %}
