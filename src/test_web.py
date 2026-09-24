@@ -40,10 +40,9 @@ def _campos(thread_id: str) -> dict:
     return datos
 
 
-def test_bandeja_vacia_explica_como_traer_correos(cliente):
+def test_bandeja_vacia(cliente):
     html = cliente.get("/").text
     assert "No hay casos esperando revision" in html
-    assert "src.gmail_ingesta" in html
 
 
 def test_bandeja_lista_el_caso_pendiente(cliente):

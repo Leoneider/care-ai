@@ -1,9 +1,11 @@
 <#
     Arranque local de Care AI.
 
-        .\care.cmd up          UI + poller de Gmail
+        .\care.cmd up          bandeja + consola de sistemas + poller de Gmail
         .\care.cmd ui          solo la bandeja
+        .\care.cmd sistemas    solo la consola del sistema legado (otra app)
         .\care.cmd poller      solo la ingesta
+        .\care.cmd studio      el grafo en LangGraph Studio (langgraph dev)
         .\care.cmd estado      que corre y que hay en la bandeja
         .\care.cmd stop        para todo
         .\care.cmd demo        siembra el correo de ejemplo
@@ -25,11 +27,13 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'ui', 'poller', 'gmail', 'estado', 'stop', 'demo', 'limpiar', 'restaurar', 'reiniciar', 'ayuda')]
+    [ValidateSet('up', 'ui', 'sistemas', 'poller', 'studio', 'gmail', 'estado', 'stop', 'demo', 'limpiar', 'restaurar', 'reiniciar', 'ayuda')]
     [string]$Comando = 'ayuda',
 
     [int]$Puerto = 8000,
-    [int]$Intervalo = 60
+    [int]$PuertoSistemas = 8001,
+    [int]$Intervalo = 60,
+    [int]$PuertoStudio = 2024
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +108,30 @@ function Iniciar-UI {
     return $false
 }
 
+function Iniciar-Sistemas {
+    # La consola del mini sistema legado es otra app, en otro proceso y puerto:
+    # el agente y los sistemas que toca no comparten pantalla.
+    Liberar-Puerto $PuertoSistemas
+    $log = Join-Path $DirLogs 'sistemas.log'
+    $p = Start-Process -FilePath $Py `
+        -ArgumentList @('-m', 'src.sistemas_web', '--port', $PuertoSistemas) `
+        -WorkingDirectory $Raiz -WindowStyle Hidden -PassThru `
+        -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+    Anotar-Pid 'sistemas' $p.Id
+
+    $url = "http://127.0.0.1:$PuertoSistemas/"
+    foreach ($i in 1..25) {
+        Start-Sleep -Milliseconds 400
+        try {
+            Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2 | Out-Null
+            Escribir "  sistemas -> $url" Green
+            return $true
+        } catch { }
+    }
+    Escribir "  La consola de sistemas no respondio. Revisa $log.err" Red
+    return $false
+}
+
 function Iniciar-Poller {
     $token = Join-Path $Raiz 'token.json'
     if (-not (Test-Path $token)) {
@@ -137,7 +165,7 @@ function Detener-Todo {
         Remove-Item $Pids -Force -ErrorAction SilentlyContinue
     }
     # Por si quedo algo de una sesion anterior cuyo .pids se perdio.
-    $con = Get-NetTCPConnection -LocalPort $Puerto -State Listen -ErrorAction SilentlyContinue
+    $con = Get-NetTCPConnection -LocalPort $Puerto, $PuertoSistemas -State Listen -ErrorAction SilentlyContinue
     if ($con) {
         $con | Select-Object -ExpandProperty OwningProcess -Unique |
             ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue; $parados++ }
@@ -150,6 +178,10 @@ function Mostrar-Estado {
     $con = Get-NetTCPConnection -LocalPort $Puerto -State Listen -ErrorAction SilentlyContinue
     if ($con) { Escribir "  bandeja  arriba  http://127.0.0.1:$Puerto/" Green }
     else { Escribir "  bandeja  parada" DarkGray }
+
+    $con = Get-NetTCPConnection -LocalPort $PuertoSistemas -State Listen -ErrorAction SilentlyContinue
+    if ($con) { Escribir "  sistemas arriba  http://127.0.0.1:$PuertoSistemas/" Green }
+    else { Escribir "  sistemas parada" DarkGray }
 
     $poller = Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandLine -like '*gmail_ingesta*--loop*' }
@@ -176,6 +208,7 @@ switch ($Comando) {
         Confirmar-Entorno
         Escribir "`nCare AI" Cyan
         Iniciar-UI | Out-Null
+        Iniciar-Sistemas | Out-Null
         Iniciar-Poller | Out-Null
         Escribir "`n  .\care.cmd estado   ver que hay" DarkGray
         Escribir "  .\care.cmd stop     parar todo`n" DarkGray
@@ -184,6 +217,12 @@ switch ($Comando) {
         Confirmar-Entorno
         Escribir "`nCare AI" Cyan
         Iniciar-UI | Out-Null
+        Escribir ""
+    }
+    'sistemas' {
+        Confirmar-Entorno
+        Escribir "`nSistemas legados" Cyan
+        Iniciar-Sistemas | Out-Null
         Escribir ""
     }
     'poller' {
@@ -234,6 +273,34 @@ Cuando lo tengas, vuelve a correr:  .\care.cmd gmail
 
         & $Py -m src.gmail_ingesta --diagnostico
     }
+    'studio' {
+        Confirmar-Entorno
+        $cli = Join-Path $Raiz '.venv\Scripts\langgraph.exe'
+        & $Py -c "import langgraph_api" 2>$null
+        $hayApi = $?
+        if (-not $hayApi -or -not (Test-Path $cli)) {
+            Escribir "Instalando langgraph-cli[inmem] en el venv..." Yellow
+            & $Py -m pip install -q "langgraph-cli[inmem]"
+        }
+        Liberar-Puerto $PuertoStudio
+
+        # El CLI imprime emojis y la consola de Windows (cp1252) revienta con
+        # UnicodeEncodeError antes de arrancar el servidor.
+        $env:PYTHONIOENCODING = 'utf-8'
+        $env:PYTHONUTF8 = '1'
+
+        Escribir "`nCare AI - LangGraph Studio" Cyan
+        Escribir "  api     -> http://127.0.0.1:$PuertoStudio" Green
+        Escribir "  studio  -> https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:$PuertoStudio" Green
+        Escribir "  Ctrl+C para parar.`n" DarkGray
+
+        # --allow-blocking: los nodos leen SQLite y el mini sistema de forma
+        # sincrona; sin la bandera el servidor aborta cada corrida con BlockingError.
+        Push-Location $Raiz
+        try {
+            & $cli dev --host 127.0.0.1 --port $PuertoStudio --allow-blocking
+        } finally { Pop-Location }
+    }
     'estado' { Confirmar-Entorno; Mostrar-Estado }
     'stop' { Detener-Todo }
     'demo' {
@@ -263,9 +330,11 @@ Cuando lo tengas, vuelve a correr:  .\care.cmd gmail
 Care AI - arranque local
 
   .\care.cmd gmail       conecta con Google: guia, autoriza y comprueba
-  .\care.cmd up          UI + poller de Gmail
+  .\care.cmd up          bandeja + sistemas + poller de Gmail
   .\care.cmd ui          solo la bandeja       -> http://127.0.0.1:$Puerto
+  .\care.cmd sistemas    solo la consola del sistema legado -> http://127.0.0.1:$PuertoSistemas
   .\care.cmd poller      solo la ingesta de Gmail
+  .\care.cmd studio      el grafo en LangGraph Studio -> http://127.0.0.1:$PuertoStudio
   .\care.cmd estado      que corre y que hay en la bandeja
   .\care.cmd stop        para todo
   .\care.cmd demo        siembra el correo de ejemplo (sin API key)
@@ -273,7 +342,7 @@ Care AI - arranque local
   .\care.cmd reiniciar   demo desde cero: bandeja vacia y sistemas en la semilla
   .\care.cmd restaurar   devuelve el mini sistema (CRM, facturacion, red) a la semilla
 
-Opciones:  -Puerto 8000   -Intervalo 60
+Opciones:  -Puerto 8000   -PuertoSistemas 8001   -Intervalo 60   -PuertoStudio 2024
 
 Primera vez:  .\care.cmd gmail   ->   .\care.cmd up
 

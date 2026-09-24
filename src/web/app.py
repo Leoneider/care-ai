@@ -1,7 +1,9 @@
 """UI del ejecutivo Care: bandeja, detalle del caso, y aprobar / editar / rechazar.
 
-Fase 2: tambien la revision de cierre (pestana "En verificacion") y la pestana
-"Sistemas", que muestra el mini sistema legado y lo que el copiloto cambio en el.
+Fase 2: tambien la revision de cierre (pestana "En verificacion"). El mini sistema
+legado NO se ve aqui: tiene su propia consola (`src/sistemas_web`, puerto 8001),
+porque el agente y los sistemas que toca son productos distintos. La bandeja solo
+enlaza a ella (`CARE_SISTEMAS_URL`).
 
 HTML renderizado en servidor, sin JS ni build. La UI no sabe que existe un grafo:
 habla con `servicio.py`, que es quien traduce a `get_state` y `Command(resume=...)`.
@@ -22,15 +24,20 @@ Tres decisiones de esta capa:
   exponerla hace falta login y registrar quien decidio cada caso.
 """
 
+import os
+import re
 from datetime import datetime
+from email.utils import parseaddr
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import db, servicio, sistemas
+from .. import db, servicio
+from ..nodes import UMBRAL_CONFIANZA
 
 PLANTILLAS = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -54,10 +61,35 @@ def _cop(valor: Any) -> str:
         return "-"
 
 
+_MARCA_DEMO = re.compile(r"\bCARE-TEST\b\s*[:\-]?\s*", re.IGNORECASE)
+
+
+def _asunto(asunto: str | None) -> str:
+    """Quita la marca `CARE-TEST` del asunto al listar.
+
+    Es el filtro de `GMAIL_QUERY`, no parte del pedido del cliente: en la bandeja
+    todos los casos la traen y solo empuja lo que importa hacia la derecha.
+    """
+    limpio = _MARCA_DEMO.sub("", asunto or "").strip()
+    return limpio or "(sin asunto)"
+
+
+def _remitente(remitente: str | None) -> str:
+    """'Leoneider Trigos <l@x.co>' -> 'Leoneider Trigos'; sin nombre, el correo."""
+    nombre, correo = parseaddr(remitente or "")
+    return nombre or correo or (remitente or "-")
+
+
 PLANTILLAS.env.filters["fecha"] = _fecha
 PLANTILLAS.env.filters["cop"] = _cop
+PLANTILLAS.env.filters["asunto"] = _asunto
+PLANTILLAS.env.filters["remitente"] = _remitente
+PLANTILLAS.env.globals["umbral_confianza"] = UMBRAL_CONFIANZA
+# Donde vive la consola del sistema legado. Es otra app: la bandeja solo la enlaza.
+PLANTILLAS.env.globals["sistemas_url"] = os.getenv("CARE_SISTEMAS_URL", "http://127.0.0.1:8001").rstrip("/")
 
 app = FastAPI(title="Care AI - Bandeja del ejecutivo", docs_url=None, redoc_url=None)
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
 def _contexto(request: Request, **extra: Any) -> dict[str, Any]:
@@ -238,33 +270,3 @@ async def cerrar(request: Request, thread_id: str, decision: str = Form(...), co
     servicio.cerrar(thread_id, decision, comentario)
     return RedirectResponse(f"/caso/{thread_id}", status_code=303)
 
-
-# --------------------------------------------------------------------------- #
-# Pestana "Sistemas": el mini sistema legado
-# --------------------------------------------------------------------------- #
-@app.get("/sistemas", response_class=HTMLResponse)
-def ver_sistemas(request: Request, cuenta: str | None = None, reiniciado: int = -1):
-    cuentas = sistemas.cuentas()
-    ids = [c["cuenta_id"] for c in cuentas]
-    # Por defecto la cuenta de pruebas del buzon real, que es la de la demo.
-    elegida = cuenta if cuenta in ids else ("B2B-005130" if "B2B-005130" in ids else (ids[0] if ids else None))
-    return PLANTILLAS.TemplateResponse(
-        request, "sistemas.html",
-        _contexto(
-            request,
-            vista="sistemas",
-            cuentas=cuentas,
-            elegida=elegida,
-            datos=sistemas.vista_cuenta(elegida) if elegida else None,
-            reiniciado=reiniciado,
-        ),
-    )
-
-
-@app.post("/demo/reiniciar")
-async def reiniciar_demo(confirmo: str = Form(""), cuenta: str = Form("")):
-    """Bandeja vacia y sistemas en la semilla. Pide la casilla: se pierde lo hecho."""
-    if not confirmo:
-        return RedirectResponse(f"/sistemas?cuenta={cuenta}", status_code=303)
-    r = servicio.reiniciar_demo()
-    return RedirectResponse(f"/sistemas?cuenta={cuenta}&reiniciado={r['casos_archivados']}", status_code=303)

@@ -338,27 +338,19 @@ def cliente():
         yield c
 
 
-def test_la_pestana_sistemas_abre_en_la_cuenta_de_la_demo(cliente):
-    html = cliente.get("/sistemas").text
-    assert "UFPSO (cuenta de pruebas)" in html
-    assert "Bogota - Sede Chapinero" in html
-    assert "7.150.000" in html                     # la factura de septiembre, antes del caso
-
-
-def test_tras_el_caso_la_pestana_sistemas_muestra_lo_que_cambio(cliente):
-    _aprobado("ui1")
-    html = cliente.get("/sistemas?cuenta=B2B-005130").text
-    assert "500 Mbps" in html
-    assert "NC-70001" in html
-    assert "aplicar_ancho_banda" in html and "emitir_nota_credito" in html
-    assert 'class="tocado"' in html
-
-
 def test_el_caso_cerrado_solo_lo_dice_en_su_detalle(cliente):
     final = _aprobado("ui2")
     html = cliente.get(f"/caso/{final['thread_id']}").text
     assert "Correo terminado" in html and "cierre automatico" in html
     assert "verificado" in html
+    # los tickets enlazan a la consola del sistema legado, que es otra app
+    assert "http://127.0.0.1:8001/?cuenta=B2B-005130" in html
+
+
+def test_la_bandeja_ya_no_sirve_los_sistemas(cliente):
+    assert cliente.get("/sistemas").status_code == 404
+    assert cliente.post("/demo/reiniciar", data={"confirmo": "1"}).status_code == 404
+    assert 'href="/sistemas"' not in cliente.get("/").text
 
 
 def test_un_caso_en_verificacion_se_cierra_desde_la_ui(cliente, monkeypatch):
@@ -381,17 +373,6 @@ def test_dejar_el_ticket_abierto_exige_decir_por_que(cliente, monkeypatch):
 
     assert "escribe en el comentario" in r.text
     assert servicio.detalle(thread)["etapa"] == "verificacion"
-
-
-def test_reiniciar_la_demo_desde_la_ui_pide_confirmacion(cliente):
-    _aprobado("r1")
-    cliente.post("/demo/reiniciar", data={"cuenta": "B2B-005130"})
-    assert sistemas.servicio("SVC-9310")["ancho_banda_mbps"] == 500     # sin casilla, nada
-
-    html = cliente.post("/demo/reiniciar", data={"cuenta": "B2B-005130", "confirmo": "1"}).text
-    assert "Demo reiniciada" in html and "1 caso(s)" in html
-    assert sistemas.servicio("SVC-9310")["ancho_banda_mbps"] == 200
-    assert "Todavia no se ha resuelto ningun caso" in cliente.get("/resueltos").text
 
 
 def test_reiniciar_la_demo_vacia_todo_sin_reprocesar_correos_viejos(monkeypatch):

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block titulo %}Sistemas legados{% endblock %}</title>
+<script>
+  try { var t = localStorage.getItem("sistemas-tema"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+/* ================================================================
+   Consola del sistema legado. A proposito NO usa la identidad de
+   Care AI: gris pizarra, acento verde azulado, fuente del sistema.
+   En la demo tiene que verse como otro producto, porque lo es.
+   ================================================================ */
+:root{
+  --fondo:#eef1f4; --panel:#ffffff; --fondo-2:#e4e8ed;
+  --borde:#d3d9e0; --borde-fuerte:#aab4c0;
+  --texto:#1c2530; --tenue:#5d6b7a;
+  --acento:#0f766e; --acento-suave:#dff3f1; --acento-texto:#ffffff;
+  --barra:#1f2a36; --barra-texto:#e6ebf0;
+  --ok:#15803d;     --ok-bg:#e3f4e8;
+  --alerta:#a15c07; --alerta-bg:#fdf1d8;
+  --falla:#b91c1c;  --falla-bg:#fbe7e7;
+  --abierto:#0369a1; --abierto-bg:#e0f0fa;
+  --progreso:#0f766e; --progreso-bg:#dff3f1;
+  --resuelto:#64748b; --resuelto-bg:#eceff3;
+  --radio:6px;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fondo:#12171d; --panel:#1a2129; --fondo-2:#222b35;
+    --borde:#2d3843; --borde-fuerte:#43515f;
+    --texto:#e3e8ee; --tenue:#96a3b1;
+    --acento:#2dd4bf; --acento-suave:rgba(45,212,191,.12); --acento-texto:#0b1f1d;
+    --barra:#0b0f14; --barra-texto:#e3e8ee;
+    --ok:#4ade80;     --ok-bg:rgba(74,222,128,.10);
+    --alerta:#fbbf24; --alerta-bg:rgba(251,191,36,.12);
+    --falla:#f87171;  --falla-bg:rgba(248,113,113,.12);
+    --abierto:#38bdf8; --abierto-bg:rgba(56,189,248,.12);
+    --progreso:#2dd4bf; --progreso-bg:rgba(45,212,191,.12);
+    --resuelto:#94a3b8; --resuelto-bg:rgba(148,163,184,.12);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fondo:#12171d; --panel:#1a2129; --fondo-2:#222b35;
+  --borde:#2d3843; --borde-fuerte:#43515f;
+  --texto:#e3e8ee; --tenue:#96a3b1;
+  --acento:#2dd4bf; --acento-suave:rgba(45,212,191,.12); --acento-texto:#0b1f1d;
+  --barra:#0b0f14; --barra-texto:#e3e8ee;
+  --ok:#4ade80;     --ok-bg:rgba(74,222,128,.10);
+  --alerta:#fbbf24; --alerta-bg:rgba(251,191,36,.12);
+  --falla:#f87171;  --falla-bg:rgba(248,113,113,.12);
+  --abierto:#38bdf8; --abierto-bg:rgba(56,189,248,.12);
+  --progreso:#2dd4bf; --progreso-bg:rgba(45,212,191,.12);
+  --resuelto:#94a3b8; --resuelto-bg:rgba(148,163,184,.12);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{margin:0; min-height:100vh; background:var(--fondo); color:var(--texto); font:14px/1.5 var(--sans)}
+a{color:var(--acento)}
+.envoltura{max-width:1040px; margin:0 auto; padding:0 16px 64px}
+
+header.barra{background:var(--barra); color:var(--barra-texto)}
+header.barra .envoltura{display:flex; align-items:center; gap:12px; padding-top:10px; padding-bottom:10px}
+.marca{font-weight:650; letter-spacing:.01em; margin-right:auto}
+.marca small{font-weight:400; opacity:.65; margin-left:8px; font-size:12.5px}
+.tema{font:inherit; font-size:12.5px; padding:4px 10px; border-radius:var(--radio); cursor:pointer;
+  background:transparent; color:var(--barra-texto); border:1px solid rgba(255,255,255,.25)}
+
+h1{font-size:21px; font-weight:650; margin:26px 0 4px}
+h2{font-size:14.5px; font-weight:650; margin:0}
+.sub{color:var(--tenue); font-size:13.5px; margin:0 0 18px; max-width:76ch}
+.mono{font-family:var(--mono); font-size:12.5px}
+
+.aviso{border:1px solid var(--borde); border-left:3px solid var(--acento); background:var(--panel);
+  border-radius:0 var(--radio) var(--radio) 0; padding:10px 14px; margin:14px 0; font-size:13.5px}
+.vacio{text-align:center; padding:48px 20px; color:var(--tenue); border:1px dashed var(--borde-fuerte);
+  border-radius:var(--radio); background:var(--panel)}
+
+.cuentas{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 18px}
+.cuentas a{text-decoration:none; color:var(--texto); border:1px solid var(--borde); border-radius:var(--radio);
+  padding:7px 12px; font-size:13.5px; background:var(--panel)}
+.cuentas a:hover{border-color:var(--borde-fuerte)}
+.cuentas a.activo{border-color:var(--acento); color:var(--acento); background:var(--acento-suave); font-weight:600}
+.cuentas a small{display:block; font-family:var(--mono); font-size:11px; color:var(--tenue); font-weight:400}
+
+.rejilla{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px}
+.tarjeta{border:1px solid var(--borde); border-radius:var(--radio); background:var(--panel); padding:16px 18px}
+.encabezado-tarjeta{margin-bottom:10px}
+dl.datos{display:grid; grid-template-columns:auto 1fr; gap:5px 14px; margin:0; font-size:13.5px}
+dl.datos dt{color:var(--tenue)}
+dl.datos dd{margin:0; font-family:var(--mono); font-size:12.5px}
+.etiqueta{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--tenue);
+  font-weight:600; margin:14px 0 7px}
+ul.checks{list-style:none; padding:0; margin:0; display:grid; gap:6px}
+ul.checks li{display:flex; gap:8px; align-items:flex-start; font-size:13.5px}
+ul.checks li span.pill{flex:none; margin-top:1px}
+
+.pill{display:inline-flex; align-items:center; padding:0 7px; border-radius:4px; font-size:11px; font-weight:600;
+  font-family:var(--mono); white-space:nowrap; line-height:1.7; border:1px solid transparent}
+.ok{background:var(--ok-bg); color:var(--ok)}
+.alerta{background:var(--alerta-bg); color:var(--alerta)}
+.falla{background:var(--falla-bg); color:var(--falla)}
+.neutro{color:var(--tenue); border-color:var(--borde)}
+.estado-abierto{background:var(--abierto-bg); color:var(--abierto)}
+.estado-progreso{background:var(--progreso-bg); color:var(--progreso)}
+.estado-resuelto{background:var(--resuelto-bg); color:var(--resuelto)}
+
+.seccion{margin-top:26px}
+.tabla-scroll{overflow-x:auto; margin-top:10px; background:var(--panel); border:1px solid var(--borde); border-radius:var(--radio)}
+table{width:100%; border-collapse:collapse; min-width:560px}
+th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--tenue);
+  font-weight:600; padding:9px 10px; border-bottom:1px solid var(--borde); background:var(--fondo-2)}
+td{padding:8px 10px; border-bottom:1px solid var(--borde); vertical-align:top; font-size:13px}
+tbody tr:last-child td{border-bottom:0}
+.num{font-family:var(--mono); font-size:12.5px; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
+/* filas que escribio el copiloto */
+tr.tocado td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
+tr.tocado{background:var(--acento-suave)}
+.cambio{font-family:var(--mono); font-size:12px; white-space:nowrap}
+.cambio s{color:var(--tenue)}
+details{margin:4px 0 0}
+summary{cursor:pointer; font-size:12.5px; color:var(--tenue)}
+
+.restaurar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--tenue);
+  margin-top:28px; padding-top:16px; border-top:1px solid var(--borde)}
+.restaurar label{display:flex; gap:6px; align-items:center}
+button{font:inherit; font-size:13.5px; font-weight:600; padding:7px 14px; border-radius:var(--radio); cursor:pointer;
+  border:1px solid var(--borde-fuerte); background:var(--panel); color:var(--texto)}
+button.peligro:hover{border-color:var(--falla); color:var(--falla)}
+button:focus-visible, a:focus-visible{outline:2px solid var(--acento); outline-offset:2px}
+
+@media (max-width:640px){ .num{text-align:left} }
+</style>
+</head>
+<body>
+<header class="barra">
+  <div class="envoltura">
+    <span class="marca">Sistemas legados<small>CRM &middot; Facturacion &middot; Contratos &middot; Red &middot; Mesa de servicio</small></span>
+    <button type="button" class="tema" id="tema" aria-label="Cambiar tema claro/oscuro">Tema</button>
+  </div>
+</header>
+<main class="envoltura">
+{% block contenido %}{% endblock %}
+</main>
+<script>
+  document.getElementById("tema").addEventListener("click", function () {
+    var raiz = document.documentElement;
+    var oscuro = raiz.dataset.theme ? raiz.dataset.theme === "dark"
+                                    : matchMedia("(prefers-color-scheme: dark)").matches;
+    raiz.dataset.theme = oscuro ? "light" : "dark";
+    try { localStorage.setItem("sistemas-tema", raiz.dataset.theme); } catch (e) {}
+  });
+</script>
+</body>
+</html>

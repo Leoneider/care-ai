@@ -4,117 +4,286 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Bandeja Care{% endblock %}</title>
+<script>
+  // Tema elegido a mano (si lo hay) antes de pintar, para evitar el parpadeo.
+  try { var t = localStorage.getItem("care-tema"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+/* ================================================================
+   Sistema de diseno Care AI — tema azul (paleta Tigo)
+   1. Tokens (claro por defecto, oscuro por preferencia o data-theme)
+   2. Base y layout
+   3. Componentes: barra, tablas, pills, estados, tarjetas, agente/humano
+   ================================================================ */
+
+/* --- 1. Tokens ------------------------------------------------- */
 :root{
-  --fondo:#ffffff; --panel:#f7f8fa; --borde:#dfe3e8; --texto:#12161c;
-  --tenue:#5c6773; --acento:#1d4ed8; --acento-suave:#eef2ff;
-  --ok:#0f7b46; --alerta:#9a5b00; --falla:#b4231d;
-  --ok-bg:#e8f5ee; --alerta-bg:#fdf3e0; --falla-bg:#fdecea;
-  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  /* superficies: grises con subtono azul */
+  --fondo:#f3f5fa; --fondo-2:#e9edf7;
+  --panel:rgba(255,255,255,.82); --panel-solido:#ffffff;
+  --borde:#dfe4f0; --borde-fuerte:#b9c4e4;
+  --texto:#0a1646; --tenue:#56618a;
+  /* marca: azul Tigo, cian y amarillo de acento */
+  --acento:#0023b4; --acento-fuerte:#1a3fe0; --acento-suave:#e7ecfd;
+  --acento-texto:#ffffff; --brillo:rgba(0,35,180,.16);
+  --cian:#00a9e0; --amarillo:#ffc20e;
+  /* semanticos */
+  --ok:#0f7b46;       --ok-bg:#e3f5ec;
+  --alerta:#9a5b00;   --alerta-bg:#fff3d1;
+  --falla:#c0261c;    --falla-bg:#fdeceb;
+  /* estados de ticket */
+  --abierto:#0086b8;  --abierto-bg:#dff4fc;
+  --progreso:#0023b4; --progreso-bg:#e3e9fd;
+  --resuelto:#66708f; --resuelto-bg:#eceef4;
+  /* forma */
+  --radio:16px; --radio-sm:10px;
+  --sombra:0 1px 2px rgba(10,22,70,.05), 0 10px 28px -14px rgba(10,22,70,.18);
+  --reflejo:inset 0 1px 0 rgba(255,255,255,.9);
+  --vidrio:blur(14px) saturate(140%);
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --fondo:#0f1319; --panel:#161b23; --borde:#2a323d; --texto:#e6eaf0;
-    --tenue:#98a3b2; --acento:#7aa2ff; --acento-suave:#1a2338;
-    --ok:#5bd99a; --alerta:#e8b25a; --falla:#ff8b82;
-    --ok-bg:#12281d; --alerta-bg:#2a2112; --falla-bg:#2c1614;
+    --fondo:#050a24; --fondo-2:#0b1438;
+    --panel:rgba(14,24,68,.55); --panel-solido:#0b1438;
+    --borde:rgba(96,140,255,.16); --borde-fuerte:rgba(96,140,255,.34);
+    --texto:#e6ebff; --tenue:#98a3cc;
+    --acento:#4f7bff; --acento-fuerte:#7c9dff; --acento-suave:rgba(79,123,255,.14);
+    --acento-texto:#ffffff; --brillo:rgba(40,90,255,.38);
+    --cian:#22c8f5; --amarillo:#ffc93d;
+    --ok:#4ade80;       --ok-bg:rgba(74,222,128,.10);
+    --alerta:#ffc93d;   --alerta-bg:rgba(255,201,61,.12);
+    --falla:#f87171;    --falla-bg:rgba(248,113,113,.12);
+    --abierto:#22c8f5;  --abierto-bg:rgba(34,200,245,.12);
+    --progreso:#6e93ff; --progreso-bg:rgba(79,123,255,.16);
+    --resuelto:#8a94b8; --resuelto-bg:rgba(138,148,184,.12);
+    --sombra:0 1px 0 rgba(0,0,0,.4), 0 12px 32px -16px rgba(0,0,0,.7);
+    --reflejo:inset 0 1px 0 rgba(180,200,255,.07);
+    color-scheme:dark;
   }
 }
-*{box-sizing:border-box}
-body{
-  margin:0; background:var(--fondo); color:var(--texto);
-  font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+:root[data-theme="dark"]{
+  --fondo:#050a24; --fondo-2:#0b1438;
+  --panel:rgba(14,24,68,.55); --panel-solido:#0b1438;
+  --borde:rgba(96,140,255,.16); --borde-fuerte:rgba(96,140,255,.34);
+  --texto:#e6ebff; --tenue:#98a3cc;
+  --acento:#4f7bff; --acento-fuerte:#7c9dff; --acento-suave:rgba(79,123,255,.14);
+  --acento-texto:#ffffff; --brillo:rgba(40,90,255,.38);
+  --cian:#22c8f5; --amarillo:#ffc93d;
+  --ok:#4ade80;       --ok-bg:rgba(74,222,128,.10);
+  --alerta:#ffc93d;   --alerta-bg:rgba(255,201,61,.12);
+  --falla:#f87171;    --falla-bg:rgba(248,113,113,.12);
+  --abierto:#22c8f5;  --abierto-bg:rgba(34,200,245,.12);
+  --progreso:#6e93ff; --progreso-bg:rgba(79,123,255,.16);
+  --resuelto:#8a94b8; --resuelto-bg:rgba(138,148,184,.12);
+  --sombra:0 1px 0 rgba(0,0,0,.4), 0 12px 32px -16px rgba(0,0,0,.7);
+  --reflejo:inset 0 1px 0 rgba(180,200,255,.07);
+  color-scheme:dark;
 }
-.envoltura{max-width:980px; margin:0 auto; padding:0 16px 72px}
+
+/* --- 2. Base y layout ------------------------------------------ */
+*{box-sizing:border-box}
+html{background:var(--fondo)}
+body{
+  margin:0; min-height:100vh; color:var(--texto);
+  font:15px/1.55 var(--sans);
+  -webkit-font-smoothing:antialiased;
+  /* dos halos azules muy tenues: dan profundidad al vidrio sin distraer */
+  background:
+    radial-gradient(900px 480px at 85% -10%, var(--brillo), transparent 65%),
+    radial-gradient(700px 420px at -10% 110%, var(--acento-suave), transparent 70%),
+    var(--fondo);
+  background-attachment:fixed;
+}
+::selection{background:var(--acento); color:var(--acento-texto)}
+a{color:var(--acento)}
+.envoltura{max-width:1040px; margin:0 auto; padding:0 16px 72px}
+.ico{width:16px; height:16px; flex:none; stroke:currentColor; fill:none;
+  stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; vertical-align:-3px}
+
+/* --- 3. Barra superior ----------------------------------------- */
 header.barra{
-  border-bottom:1px solid var(--borde); background:var(--panel);
   position:sticky; top:0; z-index:5;
+  border-bottom:1px solid var(--borde);
+  background:var(--panel); backdrop-filter:var(--vidrio); -webkit-backdrop-filter:var(--vidrio);
 }
 header.barra .envoltura{
-  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
-  padding-top:14px; padding-bottom:14px;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding-top:12px; padding-bottom:12px;
 }
-.marca{font-weight:650; letter-spacing:-.01em; margin-right:auto}
-.marca a{color:inherit; text-decoration:none}
-.marca small{display:block; font-weight:400; color:var(--tenue); font-size:12px}
+.marca{display:flex; align-items:center; margin-right:auto; border-radius:var(--radio-sm)}
+.marca img{height:34px; width:auto; display:block}
+/* el "Care" del logo es azul marino: en oscuro se usa la variante con texto blanco */
+.logo-oscuro{display:none !important}
+:root[data-theme="dark"] .logo-claro{display:none !important}
+:root[data-theme="dark"] .logo-oscuro{display:block !important}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .logo-claro{display:none !important}
+  :root:not([data-theme="light"]) .logo-oscuro{display:block !important}
+}
+nav{display:flex; gap:2px; flex-wrap:wrap}
 nav a{
-  color:var(--tenue); text-decoration:none; font-size:14px;
-  padding:5px 10px; border-radius:6px;
+  display:inline-flex; align-items:center; gap:6px;
+  color:var(--tenue); text-decoration:none; font-size:13.5px; font-weight:500;
+  padding:6px 10px; border-radius:var(--radio-sm); transition:color .15s, background .15s;
 }
-nav a.activo{background:var(--acento-suave); color:var(--acento); font-weight:550}
+nav a:hover{color:var(--texto); background:var(--acento-suave)}
+nav a.activo{background:var(--acento-suave); color:var(--acento); box-shadow:inset 0 0 0 1px var(--borde-fuerte)}
+nav a .n{font-family:var(--mono); font-size:11px; padding:0 6px; border-radius:999px; background:var(--fondo-2); color:var(--tenue)}
+nav a.activo .n{background:var(--acento); color:var(--acento-texto)}
+.tema{
+  padding:6px; line-height:0; border-radius:var(--radio-sm);
+  background:transparent; border:1px solid var(--borde); color:var(--tenue);
+}
 
-h1{font-size:21px; margin:26px 0 4px; letter-spacing:-.01em}
-h2{font-size:15px; margin:0; letter-spacing:-.005em}
-.sub{color:var(--tenue); font-size:13px; margin:0 0 20px}
+/* --- Tipografia ------------------------------------------------ */
+h1{font-size:24px; font-weight:600; color:var(--acento); margin:30px 0 4px; letter-spacing:-.02em}
+h2{font-size:15px; font-weight:600; margin:0; letter-spacing:-.01em}
+.sub{color:var(--tenue); font-size:13.5px; margin:0 0 20px; max-width:72ch}
 .mono{font-family:var(--mono); font-size:12.5px}
 
-table{width:100%; border-collapse:collapse; margin-top:10px}
-th{
-  text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
-  color:var(--tenue); font-weight:600; padding:0 10px 8px; border-bottom:1px solid var(--borde);
+/* --- Tablas: una superficie de vidrio -------------------------- */
+table{width:100%; border-collapse:separate; border-spacing:0; margin-top:10px}
+.envoltura > table, .tabla-scroll{
+  background:var(--panel); border:1px solid var(--borde); border-radius:var(--radio);
+  box-shadow:var(--sombra), var(--reflejo); backdrop-filter:var(--vidrio); -webkit-backdrop-filter:var(--vidrio);
 }
-td{padding:11px 10px; border-bottom:1px solid var(--borde); vertical-align:top}
-tbody tr:hover{background:var(--panel)}
+.envoltura > table{overflow:hidden}
+th{
+  text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--tenue); font-weight:600; padding:11px 12px 9px; border-bottom:1px solid var(--borde);
+}
+td{padding:12px; border-bottom:1px solid var(--borde); vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:var(--acento-suave)}
 td a.caso{color:var(--texto); text-decoration:none; font-weight:550}
 td a.caso:hover{color:var(--acento)}
-.num{font-family:var(--mono); font-size:12.5px; text-align:right; white-space:nowrap}
+.num{font-family:var(--mono); font-size:12.5px; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
 
+/* --- Pills ----------------------------------------------------- */
 .pill{
-  display:inline-block; padding:1px 7px; border-radius:999px;
-  font-size:11px; font-weight:600; font-family:var(--mono); white-space:nowrap;
+  display:inline-flex; align-items:center; gap:5px; padding:1px 8px; border-radius:999px;
+  font-size:11px; font-weight:600; font-family:var(--mono); white-space:nowrap; line-height:1.6;
+  border:1px solid transparent;
 }
-.p1{background:var(--falla-bg); color:var(--falla)}
-.p2{background:var(--alerta-bg); color:var(--alerta)}
-.p3,.p4,.p5{background:var(--panel); color:var(--tenue); border:1px solid var(--borde)}
+.p1{background:var(--falla-bg); color:var(--falla); border-color:color-mix(in srgb, var(--falla) 35%, transparent)}
+.p2{background:var(--alerta-bg); color:var(--alerta); border-color:color-mix(in srgb, var(--alerta) 30%, transparent)}
+.p3,.p4,.p5{background:transparent; color:var(--tenue); border-color:var(--borde)}
 .ok{background:var(--ok-bg); color:var(--ok)}
 .alerta{background:var(--alerta-bg); color:var(--alerta)}
 .falla{background:var(--falla-bg); color:var(--falla)}
-.neutro{background:var(--panel); color:var(--tenue); border:1px solid var(--borde)}
+.neutro{background:transparent; color:var(--tenue); border-color:var(--borde)}
 
-.tarjeta{
-  border:1px solid var(--borde); border-radius:10px; background:var(--panel);
-  padding:16px 18px; margin:14px 0;
+/* --- Estados de ticket ----------------------------------------
+   abierto/nuevo  -> cian brillante
+   en_proceso     -> azul Tigo con pulso (agente trabajando)
+   resuelto       -> gris azulado
+   urgente        -> rojo suave, contrasta con todo el azul      */
+.estado-abierto {background:var(--abierto-bg);  color:var(--abierto)}
+.estado-progreso{background:var(--progreso-bg); color:var(--progreso); border-color:color-mix(in srgb, var(--progreso) 35%, transparent)}
+.estado-resuelto{background:var(--resuelto-bg); color:var(--resuelto)}
+.estado-urgente {background:var(--falla-bg);    color:var(--falla); border-color:color-mix(in srgb, var(--falla) 35%, transparent)}
+.estado-abierto::before, .estado-progreso::before, .estado-urgente::before{
+  content:""; width:6px; height:6px; border-radius:50%; background:currentColor;
 }
-.tarjeta.atencion{border-left:3px solid var(--alerta)}
-.encabezado-tarjeta{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:10px}
+.estado-progreso{animation:brillo 2.4s ease-in-out infinite}
+.estado-progreso::before{animation:pulso 1.6s ease-out infinite}
+@keyframes pulso{
+  0%  {box-shadow:0 0 0 0 color-mix(in srgb, var(--progreso) 70%, transparent)}
+  100%{box-shadow:0 0 0 6px transparent}
+}
+@keyframes brillo{
+  0%,100%{box-shadow:0 0 0 0 transparent}
+  50%    {box-shadow:0 0 12px -2px var(--brillo)}
+}
+
+/* --- Tarjetas de vidrio ---------------------------------------- */
+.tarjeta{
+  position:relative; border:1px solid var(--borde); border-radius:var(--radio);
+  background:var(--panel); backdrop-filter:var(--vidrio); -webkit-backdrop-filter:var(--vidrio);
+  box-shadow:var(--sombra), var(--reflejo);
+  padding:18px 20px; margin:14px 0;
+}
+/* reflejo cian en el borde superior */
+.tarjeta::before{
+  content:""; position:absolute; inset:0 20% auto; height:1px; pointer-events:none;
+  background:linear-gradient(90deg, transparent, var(--cian), transparent); opacity:.55;
+}
+.tarjeta.atencion{border-color:color-mix(in srgb, var(--alerta) 45%, var(--borde))}
+.encabezado-tarjeta{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px}
+
+/* --- Agente IA vs. humano --------------------------------------
+   Lo que produce el agente lleva el badge "Agente IA"; lo que
+   escribe una persona va neutro, con su badge. Sin bordes de color. */
+.badge-agente, .badge-humano{
+  display:inline-flex; align-items:center; gap:5px; padding:2px 8px 2px 6px;
+  border-radius:999px; font-size:11px; font-weight:600; letter-spacing:.01em;
+}
+.badge-agente{
+  color:var(--acento); background:var(--acento-suave);
+  box-shadow:inset 0 0 0 1px var(--borde-fuerte);
+}
+.badge-humano{color:var(--tenue); background:var(--fondo-2); box-shadow:inset 0 0 0 1px var(--borde)}
+.badge-agente .ico, .badge-humano .ico{width:13px; height:13px; vertical-align:0}
+.encabezado-tarjeta .badge-agente{margin-left:auto}
+
+.burbuja{
+  max-width:640px; padding:10px 14px; margin:10px 0; font-size:13.5px;
+  border-radius:4px var(--radio) var(--radio) var(--radio);
+  border:1px solid var(--borde); background:var(--panel-solido);
+}
+.burbuja .badge-agente, .burbuja .badge-humano{margin-bottom:6px}
+.burbuja.agente{
+  background:linear-gradient(100deg, var(--acento-suave), transparent 60%), var(--panel-solido);
+}
+.burbuja.humano{margin-left:auto; border-radius:var(--radio) 4px var(--radio) var(--radio)}
+
 .cita{
-  border-left:2px solid var(--acento); background:var(--fondo);
-  padding:7px 12px; margin:10px 0; color:var(--tenue);
-  font-family:var(--mono); font-size:12.5px; border-radius:0 6px 6px 0;
+  background:var(--fondo-2); padding:10px 14px; margin:10px 0; color:var(--tenue);
+  font-family:var(--mono); font-size:12.5px; border-radius:var(--radio-sm);
 }
 .campos{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0}
 .chip{
   font-family:var(--mono); font-size:11.5px; padding:2px 8px;
-  border:1px solid var(--borde); border-radius:6px; background:var(--fondo);
+  border:1px solid var(--borde); border-radius:6px; background:var(--fondo-2);
 }
 .chip b{font-weight:600; color:var(--tenue)}
+.chip.alerta{border-color:color-mix(in srgb, var(--alerta) 35%, transparent)}
 .etiqueta{
-  font-size:11px; text-transform:uppercase; letter-spacing:.06em;
-  color:var(--tenue); font-weight:600; margin:14px 0 6px;
+  display:block; font-size:11px; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--tenue); font-weight:600; margin:16px 0 7px;
 }
-ul.checks{list-style:none; padding:0; margin:0; display:grid; gap:5px}
+ul.checks{list-style:none; padding:0; margin:0; display:grid; gap:6px}
 ul.checks li{display:flex; gap:8px; align-items:flex-start; font-size:13.5px}
 ul.checks li span.pill{flex:none; margin-top:1px}
 .bloqueante{font-weight:600}
 
+/* --- Acciones propuestas y formularios ------------------------- */
 .accion{
   display:grid; grid-template-columns:auto 1fr; gap:10px;
-  padding:11px 0; border-top:1px dashed var(--borde);
+  padding:12px 0; border-top:1px dashed var(--borde);
 }
 .accion:first-of-type{border-top:0}
 .accion input[type=checkbox]{margin-top:4px; width:16px; height:16px; accent-color:var(--acento)}
 .accion .codigo{font-family:var(--mono); font-size:13px; font-weight:600}
-.accion .sistema{font-size:11px; color:var(--tenue); font-family:var(--mono)}
+.accion .sistema{font-size:11px; color:var(--tenue); font-family:var(--mono); font-weight:400; margin-left:4px}
 .params{display:flex; flex-wrap:wrap; gap:8px; margin-top:7px}
 .params label{font-size:11.5px; color:var(--tenue); display:grid; gap:2px}
 input[type=text], textarea{
-  font:inherit; font-size:13px; padding:5px 8px; color:var(--texto);
-  background:var(--fondo); border:1px solid var(--borde); border-radius:6px;
-  width:100%; font-family:inherit;
+  font:inherit; font-size:13px; padding:7px 10px; color:var(--texto);
+  background:var(--panel-solido); border:1px solid var(--borde); border-radius:var(--radio-sm);
+  width:100%; transition:border-color .15s, box-shadow .15s;
 }
 .params input[type=text]{font-family:var(--mono); font-size:12px; min-width:150px}
-textarea{min-height:64px; resize:vertical}
-input:focus, textarea:focus{outline:2px solid var(--acento); outline-offset:-1px; border-color:transparent}
+input[readonly]{background:transparent; color:var(--tenue)}
+textarea{min-height:72px; resize:vertical}
+input:focus, textarea:focus{outline:none; border-color:var(--acento); box-shadow:0 0 0 3px var(--acento-suave)}
 
 .acciones-pie{
   display:flex; gap:10px; flex-wrap:wrap; align-items:center;
@@ -122,12 +291,18 @@ input:focus, textarea:focus{outline:2px solid var(--acento); outline-offset:-1px
 }
 button{
   font:inherit; font-size:14px; font-weight:550; padding:8px 16px;
-  border-radius:7px; border:1px solid var(--borde); background:var(--fondo);
-  color:var(--texto); cursor:pointer;
+  border-radius:var(--radio-sm); border:1px solid var(--borde); background:var(--panel-solido);
+  color:var(--texto); cursor:pointer; transition:border-color .15s, color .15s, box-shadow .15s, transform .05s;
 }
 button:hover{border-color:var(--acento); color:var(--acento)}
-button.primario{background:var(--acento); border-color:var(--acento); color:#fff}
-button.primario:hover{opacity:.88; color:#fff}
+button:active{transform:translateY(1px)}
+button:focus-visible, a:focus-visible{outline:2px solid var(--acento); outline-offset:2px}
+button.primario{
+  background:linear-gradient(180deg, var(--acento-fuerte), var(--acento));
+  border-color:var(--acento); color:var(--acento-texto);
+  box-shadow:0 6px 18px -8px var(--brillo), inset 0 1px 0 rgba(255,255,255,.2);
+}
+button.primario:hover{color:var(--acento-texto); box-shadow:0 8px 24px -8px var(--brillo), inset 0 1px 0 rgba(255,255,255,.25)}
 button.peligro:hover{border-color:var(--falla); color:var(--falla)}
 .nota-pie{font-size:12px; color:var(--tenue); margin-left:auto; max-width:330px; text-align:right}
 
@@ -137,88 +312,225 @@ summary:hover{color:var(--acento)}
 pre.cuerpo{
   white-space:pre-wrap; word-break:break-word; font-family:var(--mono);
   font-size:12.5px; background:var(--panel); border:1px solid var(--borde);
-  border-radius:8px; padding:12px; margin:8px 0 0; color:var(--tenue);
+  border-radius:var(--radio-sm); padding:12px; margin:8px 0 0; color:var(--tenue);
 }
 .vacio{
   text-align:center; padding:56px 20px; color:var(--tenue);
-  border:1px dashed var(--borde); border-radius:10px; margin-top:20px;
+  border:1px dashed var(--borde-fuerte); border-radius:var(--radio); margin-top:20px; background:var(--panel);
 }
-.vacio code{font-family:var(--mono); font-size:12.5px; background:var(--panel); padding:2px 6px; border-radius:4px}
+.vacio code{font-family:var(--mono); font-size:12.5px; background:var(--acento-suave); color:var(--acento); padding:2px 6px; border-radius:4px}
 .aviso{
-  border:1px solid var(--borde); border-left:3px solid var(--acento);
-  background:var(--panel); border-radius:0 8px 8px 0; padding:11px 14px;
+  border:1px solid var(--borde);
+  background:var(--panel); border-radius:var(--radio-sm); padding:12px 14px;
   font-size:13.5px; margin:14px 0;
 }
-.aviso.alto{border-left-color:var(--falla); background:var(--falla-bg); color:var(--falla)}
+.aviso.alto{border-color:color-mix(in srgb, var(--falla) 45%, transparent); background:var(--falla-bg); color:var(--falla)}
+.aviso.aviso-alerta{border-color:color-mix(in srgb, var(--alerta) 40%, transparent); background:var(--alerta-bg)}
 
 .bloqueo{
-  border:1px solid var(--falla); background:var(--falla-bg);
-  border-radius:10px; padding:14px 16px; margin:18px 0 6px;
+  border:1px solid color-mix(in srgb, var(--falla) 55%, transparent); background:var(--falla-bg);
+  border-radius:var(--radio); padding:14px 16px; margin:18px 0 6px;
 }
 .bloqueo-titulo{font-weight:650; color:var(--falla); font-size:14px}
 .bloqueo ul{margin:8px 0 12px; padding-left:20px; font-size:13.5px; color:var(--texto)}
 .bloqueo li{margin:3px 0}
 .confirmar{
   display:flex; gap:9px; align-items:flex-start; font-size:13.5px;
-  padding-top:11px; border-top:1px solid var(--falla); cursor:pointer;
+  padding-top:11px; border-top:1px solid color-mix(in srgb, var(--falla) 40%, transparent); cursor:pointer;
 }
 .confirmar input{margin-top:2px; width:16px; height:16px; flex:none; accent-color:var(--falla)}
 .volver{font-size:13px; color:var(--tenue); text-decoration:none; display:inline-block; margin-top:22px}
 .volver:hover{color:var(--acento)}
-/* --- Fase 2: ejecucion, verificacion y sistemas --- */
-.ejecucion{border:1px solid var(--borde); border-radius:10px; padding:16px 18px; margin:16px 0; background:var(--fondo)}
-.ejecucion.riesgo{border-color:var(--alerta); border-left:3px solid var(--alerta)}
-.ejecucion.cerrado{border-left:3px solid var(--ok)}
-.ejecucion h2{margin-bottom:4px}
+
+/* --- Fase 2: ejecucion y verificacion -------------------------- */
+.ejecucion{
+  border:1px solid var(--borde); border-radius:var(--radio); padding:18px 20px; margin:16px 0;
+  background:var(--panel); backdrop-filter:var(--vidrio); -webkit-backdrop-filter:var(--vidrio);
+  box-shadow:var(--sombra), var(--reflejo);
+}
+.ejecucion h2{margin-bottom:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
 ul.motivos{margin:8px 0 4px; padding-left:20px; font-size:13.5px}
 ul.motivos li{margin:3px 0}
-table.compacta td, table.compacta th{padding:7px 8px; font-size:13px}
+table.compacta{margin-top:0}
+table.compacta td, table.compacta th{padding:8px 10px; font-size:13px}
 table.compacta td.det{color:var(--tenue)}
-.cuentas{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 18px}
-.cuentas a{
-  text-decoration:none; color:var(--texto); border:1px solid var(--borde); border-radius:8px;
-  padding:7px 12px; font-size:13.5px; background:var(--panel);
-}
-.cuentas a.activo{border-color:var(--acento); color:var(--acento); background:var(--acento-suave); font-weight:550}
-.cuentas a small{display:block; font-family:var(--mono); font-size:11px; color:var(--tenue)}
-.rejilla{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px}
-.rejilla .tarjeta{margin:0}
-dl.datos{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:0; font-size:13.5px}
-dl.datos dt{color:var(--tenue)}
-dl.datos dd{margin:0; font-family:var(--mono); font-size:12.5px}
-.tabla-scroll{overflow-x:auto}
+.tabla-scroll{overflow-x:auto; margin-top:10px}
 .tabla-scroll table{min-width:560px}
-tr.tocado td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
-.cambio{font-family:var(--mono); font-size:12px; white-space:nowrap}
-.cambio s{color:var(--tenue)}
-.seccion{margin-top:26px}
-.restaurar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--tenue);
-  margin-top:28px; padding-top:16px; border-top:1px solid var(--borde)}
-.restaurar label{display:flex; gap:6px; align-items:center}
+
+/* --- Listado de casos ------------------------------------------
+   Cada fila es un enlace entero: se abre el caso con clic en
+   cualquier parte, no solo en el asunto.                           */
+.conteo-titulo{font-family:var(--mono); font-size:13px; font-weight:500; vertical-align:4px;
+  padding:1px 8px; border-radius:999px; background:var(--acento-suave); color:var(--acento)}
+.lista-casos{margin-top:18px}
+.lista-casos ul{list-style:none; margin:0; padding:0; display:grid; gap:8px}
+.lista-cabecera, .fila-caso{
+  display:grid; align-items:center; gap:16px;
+  grid-template-columns:44px minmax(0,1fr) minmax(140px,200px) 104px 150px;
+}
+.lista-cabecera{
+  padding:0 17px 6px; font-size:11px; text-transform:uppercase; letter-spacing:.07em;
+  color:var(--tenue); font-weight:600;
+}
+.der{text-align:right}
+.fila-caso{
+  position:relative; padding:14px 16px; text-decoration:none; color:var(--texto);
+  border:1px solid var(--borde); border-radius:var(--radio-sm);
+  background:var(--panel); backdrop-filter:var(--vidrio); -webkit-backdrop-filter:var(--vidrio);
+  box-shadow:var(--sombra), var(--reflejo);
+  transition:border-color .15s, transform .15s, box-shadow .15s;
+}
+.fila-caso:hover{border-color:var(--borde-fuerte); transform:translateY(-1px);
+  box-shadow:0 14px 30px -18px var(--brillo), var(--reflejo)}
+.fila-caso:hover .asunto{color:var(--acento)}
+.col-caso, .col-cuenta, .col-estado{display:flex; flex-direction:column; gap:3px; min-width:0}
+.asunto{font-weight:600; font-size:14.5px; line-height:1.35; transition:color .15s;
+  overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
+.meta{display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; font-size:12.5px; color:var(--tenue)}
+.meta .sep{opacity:.5}
+.meta .pill{margin-left:4px}
+.razon{font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tenue{color:var(--tenue)}
+.col-confianza{display:flex; align-items:center; gap:8px; font-size:12.5px}
+.medidor{flex:1; height:6px; border-radius:999px; background:var(--fondo-2); overflow:hidden}
+.medidor span{display:block; height:100%; border-radius:inherit;
+  background:linear-gradient(90deg, var(--acento), var(--cian))}
+.col-confianza.baja .medidor span{background:var(--alerta)}
+.col-confianza.baja .mono{color:var(--alerta); font-weight:600}
+.col-estado{align-items:flex-end; text-align:right}
+.detalle-estado{font-size:12px; color:var(--tenue)}
+.alerta-texto{color:var(--alerta); font-weight:600}
+.estado-progreso-fijo{background:var(--progreso-bg); color:var(--progreso)}
+
+@media (max-width:760px){
+  .lista-cabecera{display:none}
+  .fila-caso{grid-template-columns:auto minmax(0,1fr); gap:10px 12px}
+  .col-cuenta{display:none}
+  .col-confianza{grid-column:2; max-width:220px}
+  .col-estado{grid-column:2; flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px; text-align:left}
+}
+
+/* --- Detalle del caso ------------------------------------------
+   Columna principal con los pasos del caso en orden y una ficha
+   lateral fija con los datos que se consultan de reojo.            */
+.volver-top{margin:22px 0 0}
+.cabecera-caso{margin:10px 0 16px}
+.cabecera-caso h1{margin:8px 0 6px; line-height:1.25}
+.pills-caso{display:flex; gap:6px; flex-wrap:wrap}
+
+.banner{
+  display:flex; gap:16px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;
+  padding:14px 18px; border-radius:var(--radio); font-size:14px; margin:0 0 22px;
+  border:1px solid var(--borde); background:var(--panel);
+}
+.banner .motivos{margin:6px 0 0}
+.banner-revision{background:var(--acento-suave); border-color:var(--borde-fuerte)}
+.banner-alerta{background:var(--alerta-bg); border-color:color-mix(in srgb, var(--alerta) 35%, transparent)}
+.banner-cerrado{background:var(--resuelto-bg)}
+.banner-accion{flex:none; font-size:13px; font-weight:550; text-decoration:none; white-space:nowrap}
+.banner-accion:hover{text-decoration:underline}
+
+.caso-layout{display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:24px; align-items:start}
+.caso-lateral{position:sticky; top:84px}
+.ficha{margin:0}
+dl.ficha-datos{margin:0; display:grid; gap:12px}
+dl.ficha-datos dt{font-size:11.5px; color:var(--tenue); margin-bottom:-9px}
+dl.ficha-datos dd{margin:0; font-size:13.5px; display:flex; flex-direction:column; gap:1px; min-width:0; overflow-wrap:anywhere}
+dl.ficha-datos dd.mono{font-size:12.5px}
+dl.ficha-datos dd .pill{align-self:flex-start}
+.ficha-texto{font-size:13px !important}
+.enlace-externo{display:block; margin-top:16px; padding-top:12px; border-top:1px solid var(--borde);
+  font-size:13px; text-decoration:none; font-weight:550}
+.enlace-externo:hover{text-decoration:underline}
+
+.paso{margin-bottom:26px; scroll-margin-top:84px}
+.paso-titulo{display:flex; align-items:center; gap:10px; margin-bottom:10px}
+.paso-titulo .badge-agente, .paso-titulo .badge-humano{margin-left:auto}
+.paso-n{
+  width:24px; height:24px; flex:none; border-radius:50%; display:grid; place-items:center;
+  font:600 12px var(--mono); background:var(--fondo-2); color:var(--tenue); border:1px solid var(--borde);
+}
+.paso-n.hecho{background:var(--acento-suave); color:var(--acento); border-color:var(--borde-fuerte)}
+.paso-n.actual{background:var(--acento); color:var(--acento-texto); border-color:var(--acento); box-shadow:0 0 0 4px var(--acento-suave)}
+.paso .tarjeta{margin:0 0 12px}
+.etiqueta-primera{margin-top:0}
+.correo{margin:0}
+.correo summary{padding:10px 14px; border:1px solid var(--borde); border-radius:var(--radio-sm); background:var(--panel)}
+.correo[open] summary{border-radius:var(--radio-sm) var(--radio-sm) 0 0}
+.correo pre.cuerpo{margin:0; border-top:0; border-radius:0 0 var(--radio-sm) var(--radio-sm)}
+
+.solicitud h3{font-size:15px; font-weight:600; margin:0}
+.encabezado-der{margin-left:auto; display:flex; align-items:center; gap:10px}
+.encabezado-der .col-confianza{width:110px}
+.resumen{margin:0 0 4px; font-size:14px}
+blockquote.cita{margin:10px 0 4px}
+.sol-columnas{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:4px 24px}
+.sol-columnas .campos{margin-top:0}
+.vacio-inline{margin:0; font-size:13px}
+.etiqueta-nota{text-transform:none; letter-spacing:0; font-weight:400}
+.bloqueante .pill{margin-left:4px}
+input.desc{margin-top:6px}
+.accion.lectura{grid-template-columns:10px 1fr}
+.accion-punto{width:8px; height:8px; margin-top:7px; border-radius:50%; background:var(--borde-fuerte)}
+.accion-desc{margin:4px 0 0; font-size:13.5px; color:var(--tenue)}
+.accion .campos{margin:8px 0 0}
+.registro-fila{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.comentario-humano{margin:10px 0 0; padding:10px 14px; border-radius:var(--radio-sm); background:var(--fondo-2); font-size:13.5px}
+.paso .bloqueo{margin-top:0}
+
+@media (max-width:900px){
+  .caso-layout{grid-template-columns:1fr}
+  .caso-lateral{position:static; order:-1}
+}
+
 @media (max-width:640px){
   .num{text-align:left}
   th.ocultar, td.ocultar{display:none}
   .nota-pie{margin-left:0; text-align:left; max-width:none}
+  .burbuja{max-width:none}
+}
+@media (prefers-reduced-motion: reduce){
+  *, *::before{animation:none !important; transition:none !important}
 }
 </style>
 </head>
 <body>
+<!-- Iconos lineales (trazo 1.75, estilo Lucide), referenciados por id con <use>. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-agente" viewBox="0 0 24 24"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+  <symbol id="i-humano" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-bandeja" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></symbol>
+  <symbol id="i-verificar" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-resuelto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-tema" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+</svg>
 <header class="barra">
   <div class="envoltura">
-    <div class="marca">
-      <a href="/">Care AI</a>
-      <small>bandeja del ejecutivo &middot; fase 2</small>
-    </div>
+    <a class="marca" href="/" aria-label="Care AI, ir a la bandeja">
+      <img class="logo-claro" src="/static/logo.png" alt="Care AI" width="713" height="226">
+      <img class="logo-oscuro" src="/static/logo-oscuro.png" alt="" width="713" height="226">
+    </a>
     <nav>
-      <a href="/" class="{{ 'activo' if vista == 'pendientes' }}">Pendientes {{ conteo.pendientes }}</a>
-      <a href="/verificacion" class="{{ 'activo' if vista == 'verificacion' }}">En verificacion {{ conteo.en_verificacion }}</a>
-      <a href="/resueltos" class="{{ 'activo' if vista == 'resueltos' }}">Resueltos {{ conteo.resueltos }}</a>
-      <a href="/sistemas" class="{{ 'activo' if vista == 'sistemas' }}">Sistemas</a>
+      <a href="/" class="{{ 'activo' if vista == 'pendientes' }}"><svg class="ico"><use href="#i-bandeja"/></svg>Pendientes <span class="n">{{ conteo.pendientes }}</span></a>
+      <a href="/verificacion" class="{{ 'activo' if vista == 'verificacion' }}"><svg class="ico"><use href="#i-verificar"/></svg>En verificacion <span class="n">{{ conteo.en_verificacion }}</span></a>
+      <a href="/resueltos" class="{{ 'activo' if vista == 'resueltos' }}"><svg class="ico"><use href="#i-resuelto"/></svg>Resueltos <span class="n">{{ conteo.resueltos }}</span></a>
     </nav>
+    <button type="button" class="tema" id="tema" aria-label="Cambiar tema claro/oscuro" title="Cambiar tema">
+      <svg class="ico"><use href="#i-tema"/></svg>
+    </button>
   </div>
 </header>
 <main class="envoltura">
 {% block contenido %}{% endblock %}
 </main>
+<script>
+  document.getElementById("tema").addEventListener("click", function () {
+    var raiz = document.documentElement;
+    var oscuro = raiz.dataset.theme ? raiz.dataset.theme === "dark"
+                                    : matchMedia("(prefers-color-scheme: dark)").matches;
+    raiz.dataset.theme = oscuro ? "light" : "dark";
+    try { localStorage.setItem("care-tema", raiz.dataset.theme); } catch (e) {}
+  });
+</script>
 </body>
 </html>

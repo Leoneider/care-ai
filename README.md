@@ -3,7 +3,7 @@
 Esqueleto funcional en LangGraph que va **desde el buzón de Gmail hasta la decisión del ejecutivo**, siguiendo el flujo del diagrama: Cliente → Care AI → Derivación → Ejecutivo Care.
 
 ```
-buzón Gmail ──▶ src.gmail_ingesta ──┐                  ┌──▶ src.web (bandeja)
+buzón Gmail ──▶ src.gmail_ingesta ──┐                  ┌──▶ src.web (bandeja, :8000)
                                      ▼                  │
                               ┌─── servicio.py ─────────┘
                               │   (tramo 1)      (tramo 2)
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 cp .env.example .env                     # y rellena lo que uses
 
 CARE_FAKE_LLM=1 python -m src.demo       # sin API key, respuestas simuladas
-pytest -q                                # 55 pruebas
+pytest -q                                # 99 pruebas
 ```
 
 Para ver el flujo real, con el humano de verdad en el medio — dos terminales:
@@ -53,12 +53,16 @@ CARE_FAKE_LLM=1 python -m src.demo --solo-ingesta
 
 # 2) resuélvelo desde la bandeja
 python -m src.web                        # http://127.0.0.1:8000
+
+# 3) opcional: mira lo que cambió en los sistemas (otra app)
+python -m src.sistemas_web               # http://127.0.0.1:8001
 ```
 
 ## Levantarlo en local
 
 ```powershell
-.\care.cmd up          # bandeja + poller de Gmail
+.\care.cmd up          # bandeja (:8000) + consola de sistemas (:8001) + poller de Gmail
+.\care.cmd sistemas    # solo la consola del sistema legado
 .\care.cmd estado      # qué corre y qué hay pendiente
 .\care.cmd stop        # para todo
 ```
@@ -380,12 +384,46 @@ borrador: enviarlo es del humano.
 pistas, no órdenes. Cuántos Mbps aplicar sale de los datos validados; cuánto
 acreditar sale de facturación y contratos.
 
-**Para repetir la demo desde cero:** `.\care.cmd reiniciar` (o el botón
-*Reiniciar demo* al pie de la pestaña *Sistemas*). Vacía Pendientes, En
+**Para repetir la demo desde cero:** `.\care.cmd reiniciar`. Vacía Pendientes, En
 verificación y Resueltos, y devuelve el mini sistema a la semilla. Los casos se
 archivan, no se borran: así el poller no vuelve a meter los correos `CARE-TEST`
 viejos del buzón. Para arrancar, se manda un correo nuevo. `.\care.cmd restaurar`
-solo restaura los sistemas, sin tocar la bandeja.
+(o el botón *Restaurar* al pie de la consola de sistemas) solo restaura los
+sistemas, sin tocar la bandeja.
+
+## El agente y los sistemas son dos componentes
+
+La POC corre **dos aplicaciones web separadas**, a propósito:
+
+| | Care AI (el agente) | Sistemas legados (lo que el agente toca) |
+|---|---|---|
+| Qué es | Bandeja del ejecutivo: revisar, aprobar, cerrar | Consola de CRM, facturación, contratos, red y tickets |
+| Código | `src/web/` | `src/sistemas_web/` |
+| Arranque | `python -m src.web` · `.\care.cmd ui` | `python -m src.sistemas_web` · `.\care.cmd sistemas` |
+| Puerto | `8000` | `8001` |
+| Datos | `data/care.db` + checkpoints del grafo | `data/sistemas.db` (`CARE_SISTEMAS_DB`), con su bitácora |
+| Conoce al otro | Solo por `backends.py` (escribir) y un enlace (`CARE_SISTEMAS_URL`) | No: no importa `db`, `servicio` ni el grafo |
+
+En producción esos cinco sistemas son de otros equipos y tienen sus propias
+pantallas; el agente no los muestra, los usa. Separarlos en la POC hace que la
+demo cuente eso: se aprueba un caso en Care AI y se ve el efecto en *otra*
+aplicación, con otra identidad visual, sin que una sepa de la otra. También deja
+claro qué hay que reemplazar para ir a producción: `src/sistemas_web/` y
+`src/sistemas.py` desaparecen, y `backends.py` pasa a hablar con los sistemas
+reales.
+
+Reglas que sostienen la separación:
+
+- **Care AI escribe en los sistemas solo a través de `backends.py`.** Nunca desde
+  la UI ni importando `sistemas` directamente.
+- **La consola solo importa `sistemas`.** `test_sistemas_web.py` lo comprueba.
+- **La bandeja no muestra datos de los sistemas**, más allá de lo que el propio
+  caso registró al ejecutar. Para ver el estado de una cuenta, el detalle del
+  caso enlaza a la consola (*abrir en el sistema legado ↗*). La URL sale de
+  `CARE_SISTEMAS_URL` (por defecto `http://127.0.0.1:8001`).
+- **Cada app reinicia lo suyo.** *Restaurar* en la consola no toca la bandeja;
+  `.\care.cmd reiniciar` es lo único que reinicia las dos, porque es la demo y no
+  una de las apps.
 
 ## Archivos
 
@@ -409,18 +447,20 @@ solo restaura los sistemas, sin tocar la bandeja.
 | **`src/gmail_ingesta.py`** | **Buzón de Gmail → `CorreoEntrante`, con OAuth y barrido** |
 | **`src/web/app.py`** | **UI del ejecutivo: bandeja, detalle, aprobar / editar / rechazar** |
 | **`src/respuesta.py`** | **Redacta el borrador de respuesta al cliente** |
-| **`src/web/templates/`** | **`base.html`, `bandeja.html`, `caso.html`, `sistemas.html`** |
+| **`src/web/templates/`** | **`base.html`, `bandeja.html`, `caso.html`** |
+| **`src/sistemas_web/`** | **Consola del sistema legado, app aparte en `:8001` (ver "El agente y los sistemas son dos componentes")** |
 | `conftest.py` | Aísla las pruebas: BD temporal, checkpointer en RAM, modo fake |
-| `care.cmd` + `scripts/care.ps1` | Arranque local: levanta, para y reporta la UI y el poller |
+| `care.cmd` + `scripts/care.ps1` | Arranque local: levanta, para y reporta la bandeja, la consola de sistemas y el poller |
 | `src/feedback.py` | ⏸ Persistencia en BD. Escrito pero **sin conectar** al grafo |
 | `src/metricas.py` | ⏸ Métricas de Fase 2 como consultas. Depende de `feedback.py` |
 | `src/migrar_feedback.py` | ⏸ Importa el `feedback.jsonl` a la BD cuando se retome |
 
-Las pruebas (93) van por pieza: `test_grafo.py` la topología, `test_servicio.py`
+Las pruebas (99) van por pieza: `test_grafo.py` la topología, `test_servicio.py`
 la costura entre procesos, `test_gmail.py` la normalización MIME sin red,
 `test_web.py` la UI contra la app real con `TestClient`, `test_respuesta.py` el
-borrador (contra un doble de Gmail, sin salir a la red) y `test_fase2.py` la
-ejecución, la verificación, el cierre y la pestaña *Sistemas*.
+borrador (contra un doble de Gmail, sin salir a la red), `test_fase2.py` la
+ejecución, la verificación y el cierre, y `test_sistemas_web.py` la consola del
+sistema legado y su independencia de la bandeja.
 
 ## Por dónde seguir, en orden
 
