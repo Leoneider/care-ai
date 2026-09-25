@@ -55,13 +55,13 @@ CARE_FAKE_LLM=1 python -m src.demo --solo-ingesta
 python -m src.web                        # http://127.0.0.1:8000
 
 # 3) opcional: mira lo que cambió en los sistemas (otra app)
-python -m src.sistemas_web               # http://127.0.0.1:8001
+python -m src.sistemas_web               # http://127.0.0.1:8002
 ```
 
 ## Levantarlo en local
 
 ```powershell
-.\care.cmd up          # bandeja (:8000) + consola de sistemas (:8001) + poller de Gmail
+.\care.cmd up          # bandeja (:8000) + consola de sistemas (:8002) + poller de Gmail
 .\care.cmd sistemas    # solo la consola del sistema legado
 .\care.cmd estado      # qué corre y qué hay pendiente
 .\care.cmd stop        # para todo
@@ -400,7 +400,7 @@ La POC corre **dos aplicaciones web separadas**, a propósito:
 | Qué es | Bandeja del ejecutivo: revisar, aprobar, cerrar | Consola de CRM, facturación, contratos, red y tickets |
 | Código | `src/web/` | `src/sistemas_web/` |
 | Arranque | `python -m src.web` · `.\care.cmd ui` | `python -m src.sistemas_web` · `.\care.cmd sistemas` |
-| Puerto | `8000` | `8001` |
+| Puerto | `8000` | `8002` |
 | Datos | `data/care.db` + checkpoints del grafo | `data/sistemas.db` (`CARE_SISTEMAS_DB`), con su bitácora |
 | Conoce al otro | Solo por `backends.py` (escribir) y un enlace (`CARE_SISTEMAS_URL`) | No: no importa `db`, `servicio` ni el grafo |
 
@@ -420,7 +420,7 @@ Reglas que sostienen la separación:
 - **La bandeja no muestra datos de los sistemas**, más allá de lo que el propio
   caso registró al ejecutar. Para ver el estado de una cuenta, el detalle del
   caso enlaza a la consola (*abrir en el sistema legado ↗*). La URL sale de
-  `CARE_SISTEMAS_URL` (por defecto `http://127.0.0.1:8001`).
+  `CARE_SISTEMAS_URL` (por defecto `http://127.0.0.1:8002`).
 - **Cada app reinicia lo suyo.** *Restaurar* en la consola no toca la bandeja;
   `.\care.cmd reiniciar` es lo único que reinicia las dos, porque es la demo y no
   una de las apps.
@@ -448,7 +448,7 @@ Reglas que sostienen la separación:
 | **`src/web/app.py`** | **UI del ejecutivo: bandeja, detalle, aprobar / editar / rechazar** |
 | **`src/respuesta.py`** | **Redacta el borrador de respuesta al cliente** |
 | **`src/web/templates/`** | **`base.html`, `bandeja.html`, `caso.html`** |
-| **`src/sistemas_web/`** | **Consola del sistema legado, app aparte en `:8001` (ver "El agente y los sistemas son dos componentes")** |
+| **`src/sistemas_web/`** | **Consola del sistema legado, app aparte en `:8002` (ver "El agente y los sistemas son dos componentes")** |
 | `conftest.py` | Aísla las pruebas: BD temporal, checkpointer en RAM, modo fake |
 | `care.cmd` + `scripts/care.ps1` | Arranque local: levanta, para y reporta la bandeja, la consola de sistemas y el poller |
 | `src/feedback.py` | ⏸ Persistencia en BD. Escrito pero **sin conectar** al grafo |

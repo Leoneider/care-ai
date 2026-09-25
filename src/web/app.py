@@ -1,7 +1,7 @@
 """UI del ejecutivo Care: bandeja, detalle del caso, y aprobar / editar / rechazar.
 
 Fase 2: tambien la revision de cierre (pestana "En verificacion"). El mini sistema
-legado NO se ve aqui: tiene su propia consola (`src/sistemas_web`, puerto 8001),
+legado NO se ve aqui: tiene su propia consola (`src/sistemas_web`, puerto 8002),
 porque el agente y los sistemas que toca son productos distintos. La bandeja solo
 enlaza a ella (`CARE_SISTEMAS_URL`).
 
@@ -86,7 +86,7 @@ PLANTILLAS.env.filters["asunto"] = _asunto
 PLANTILLAS.env.filters["remitente"] = _remitente
 PLANTILLAS.env.globals["umbral_confianza"] = UMBRAL_CONFIANZA
 # Donde vive la consola del sistema legado. Es otra app: la bandeja solo la enlaza.
-PLANTILLAS.env.globals["sistemas_url"] = os.getenv("CARE_SISTEMAS_URL", "http://127.0.0.1:8001").rstrip("/")
+PLANTILLAS.env.globals["sistemas_url"] = os.getenv("CARE_SISTEMAS_URL", "http://127.0.0.1:8002").rstrip("/")
 
 app = FastAPI(title="Care AI - Bandeja del ejecutivo", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")

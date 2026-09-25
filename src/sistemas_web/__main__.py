@@ -9,7 +9,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Consola del mini sistema legado (CRM, facturacion, red, tickets)")
     # 127.0.0.1 y no 0.0.0.0: como la bandeja, no tiene autenticacion.
     ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--port", type=int, default=8001)
+    ap.add_argument("--port", type=int, default=8002)
     ap.add_argument("--reload", action="store_true", help="recarga al editar (desarrollo)")
     args = ap.parse_args()
 

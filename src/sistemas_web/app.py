@@ -2,7 +2,7 @@
 
 Es una aplicacion aparte de la bandeja de Care AI, con su propio proceso y puerto:
 
-    python -m src.sistemas_web        # http://127.0.0.1:8001
+    python -m src.sistemas_web        # http://127.0.0.1:8002
 
 En produccion estos cinco sistemas son de otros equipos y tienen sus propias
 pantallas. La POC los separa igual para que la demo cuente la historia correcta:

@@ -31,7 +31,7 @@ param(
     [string]$Comando = 'ayuda',
 
     [int]$Puerto = 8000,
-    [int]$PuertoSistemas = 8001,
+    [int]$PuertoSistemas = 8002,
     [int]$Intervalo = 60,
     [int]$PuertoStudio = 2024
 )
@@ -342,7 +342,7 @@ Care AI - arranque local
   .\care.cmd reiniciar   demo desde cero: bandeja vacia y sistemas en la semilla
   .\care.cmd restaurar   devuelve el mini sistema (CRM, facturacion, red) a la semilla
 
-Opciones:  -Puerto 8000   -PuertoSistemas 8001   -Intervalo 60   -PuertoStudio 2024
+Opciones:  -Puerto 8000   -PuertoSistemas 8002   -Intervalo 60   -PuertoStudio 2024
 
 Primera vez:  .\care.cmd gmail   ->   .\care.cmd up
 

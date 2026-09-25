@@ -344,7 +344,7 @@ def test_el_caso_cerrado_solo_lo_dice_en_su_detalle(cliente):
     assert "Correo terminado" in html and "cierre automatico" in html
     assert "verificado" in html
     # los tickets enlazan a la consola del sistema legado, que es otra app
-    assert "http://127.0.0.1:8001/?cuenta=B2B-005130" in html
+    assert "http://127.0.0.1:8002/?cuenta=B2B-005130" in html
 
 
 def test_la_bandeja_ya_no_sirve_los_sistemas(cliente):
