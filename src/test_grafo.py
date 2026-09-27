@@ -24,7 +24,7 @@ def test_fan_out_detecta_dos_solicitudes():
 def test_pausa_en_revision_humana():
     _, payload = _correr(CORREO, {"decision": "aprobar"}, "t2")
     assert payload["tipo"] == "revision_care"
-    assert payload["caso"]["cuenta"] == "B2B-004712"
+    assert payload["caso"]["cuenta"] == "B2B-005130"
 
 
 def test_rechazo_no_ejecuta_acciones():

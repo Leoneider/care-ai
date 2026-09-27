@@ -66,7 +66,7 @@
 
         <span class="col-estado">
           {% if vista == 'pendientes' %}
-            <span class="mono tenue">{{ c.creado_en | fecha }}</span>
+            <span class="mono tenue">{{ (c.recibido_en or c.creado_en) | fecha }}</span>
           {% else %}
             {% set d = decisiones.get(c.decision, (c.decision or 'sin decision', 'neutro')) %}
             <span class="pill {{ d[1] }}">{{ d[0] }}</span>

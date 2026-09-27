@@ -37,9 +37,8 @@ def _aprobado(sufijo: str, **extra) -> dict:
 # --------------------------------------------------------------------------- #
 # El mini sistema
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize("direccion", ["ltrigosg@ufpso.edu.co", "ltrigos@ufpso.edu.co"])
-def test_las_dos_direcciones_de_ufpso_son_contacto_autorizado(direccion):
-    c = backends.crm_buscar_cuenta_por_correo(direccion)
+def test_el_correo_de_ufpso_es_contacto_autorizado():
+    c = backends.crm_buscar_cuenta_por_correo("ltrigosg@ufpso.edu.co")
     assert c["cuenta_id"] == "B2B-005130"
     assert c["contacto_autorizado"] is True
 
@@ -94,8 +93,8 @@ def test_la_sede_se_encuentra_con_tilde_o_dentro_de_una_frase():
 
 
 def test_una_ciudad_no_encuentra_otra_por_parecido():
-    """'Cali' no puede encontrar 'Bogota - Calle 100' por compartir letras."""
-    cliente = backends.crm_buscar_cuenta_por_correo("laura.gomez@acme.com.co")
+    """'Cali' no puede encontrar 'Ocana - Campus Algodonal' por compartir letras."""
+    cliente = backends.crm_buscar_cuenta_por_correo("ltrigosg@ufpso.edu.co")
     assert validaciones.buscar_servicio(cliente, "Cali") is None
 
 
@@ -202,15 +201,15 @@ def test_cerrar_dos_veces_no_reejecuta(monkeypatch):
 
 
 def test_aprobar_pese_a_un_bloqueo_pasa_por_verificacion_y_no_aplica_el_upgrade():
-    correo = dict(CORREO, message_id="<blq-f2@mail.acme.com.co>",
-                  cuerpo="Necesitamos ampliar el ancho de banda de la sede de Medellin a 500 Mbps.")
+    correo = dict(CORREO, message_id="<blq-f2@ufpso.edu.co>",
+                  cuerpo="Necesitamos ampliar el ancho de banda de la sede de Cucuta a 500 Mbps.")
     res = servicio.procesar_correo(correo)
     final = servicio.resolver(res["thread_id"], "aprobar", "ingenieria lo revisa")
 
     assert final["estado"] == db.EN_VERIFICACION
     motivos = " ".join(final["verificacion"]["motivos"])
     assert "validacion bloqueante" in motivos and "Ingenieria" in motivos
-    assert sistemas.servicio("SVC-8892")["ancho_banda_mbps"] == 100
+    assert sistemas.servicio("SVC-9311")["ancho_banda_mbps"] == 100
 
 
 def test_si_el_sistema_rechaza_la_operacion_el_caso_no_cierra_solo():

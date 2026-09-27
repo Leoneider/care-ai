@@ -1,53 +1,203 @@
 {% extends "base.html" %}
-{% block titulo %}Sistemas legados{% endblock %}
+{% from "_iconos.html" import icono %}
+{% block titulo %}{{ datos.cuenta.razon_social ~ ' - ' if datos }}Sistema CORE{% endblock %}
 
 {% macro tocado(ref) -%}{{ 'tocado' if datos and ref in datos.modificadas }}{%- endmacro %}
+{% macro de_prueba(ref) -%}
+  {% if ref in datos.altas %}<span class="pill prueba" title="Dado de alta desde la consola">prueba</span>{% endif %}
+{%- endmacro %}
+
+{% block estilos %}
+<style>
+.ficha{display:flex; gap:14px; align-items:center; margin-bottom:14px}
+.ficha .avatar{width:46px; height:46px; font-size:16px; border-radius:10px; background:var(--acento); color:var(--acento-texto)}
+.ficha .meta{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:4px; font-size:12.5px; color:var(--tenue)}
+.ficha .acciones{margin-left:auto; display:flex; gap:6px; flex-wrap:wrap}
+
+.pestanas{display:flex; gap:2px; border-bottom:1px solid var(--borde); margin:0 0 16px; overflow-x:auto}
+.pestanas a{display:inline-flex; align-items:center; gap:7px; padding:8px 12px; color:var(--tenue); text-decoration:none;
+  border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; font-size:13px}
+.pestanas a:hover{color:var(--texto); background:var(--hover)}
+.pestanas a[aria-selected="true"]{color:var(--texto); border-bottom-color:var(--acento); font-weight:600}
+.pestanas a[aria-selected="true"] .ico{color:var(--acento)}
+.pestanas .cuenta{font-size:11px; font-family:var(--mono); padding:0 6px; border-radius:9px; background:var(--fondo-3); color:var(--tenue); font-weight:500}
+html.js .panel:not(.activo){display:none}
+.panel{margin-bottom:26px}
+html:not(.js) .panel::before{content:attr(data-titulo); display:block; font-weight:650; font-size:15px; margin:0 0 10px}
+
+.encabezado-panel{display:flex; align-items:center; gap:10px; margin:0 0 10px; flex-wrap:wrap}
+.encabezado-panel h2{margin-right:auto}
+.bloque{margin-top:20px}
+
+/* edicion en linea: el lapiz cambia los textos por campos */
+.editable:not(.editando) .edicion, .editable.editando .lectura{display:none !important}
+.icono-btn{border:0; background:none; padding:4px; color:var(--tenue); border-radius:4px; vertical-align:middle}
+.icono-btn:hover{background:var(--hover); color:var(--texto)}
+.botones-edicion{display:flex; justify-content:flex-end; gap:6px; margin-top:12px}
+td .botones-edicion{display:inline-flex; margin:0}
+dl.datos dd .edicion{font-family:var(--sans)}
+td input.edicion, td select.edicion{padding:3px 6px}
+
+details.alta{border:1px solid var(--borde); border-radius:8px; background:var(--panel); margin-top:12px}
+details.alta > summary{list-style:none; display:flex; align-items:center; gap:8px; padding:9px 14px; cursor:default; font-weight:600; font-size:13px; color:var(--acento)}
+details.alta > summary::-webkit-details-marker{display:none}
+details.alta[open] > summary{border-bottom:1px solid var(--borde)}
+details.alta form{padding:12px 14px}
+.form-contacto{grid-template-columns:2fr 1.5fr 1fr auto}
+.form-servicio{grid-template-columns:2fr 1.4fr .8fr 1.6fr auto}
+.form-factura{grid-template-columns:1fr 1fr 1fr auto}
+.form-contrato{grid-template-columns:1fr 1fr 1fr 1fr auto}
+@media (max-width:900px){ .form-contacto, .form-servicio, .form-factura, .form-contrato{grid-template-columns:1fr 1fr} }
+@media (max-width:520px){ .form-contacto, .form-servicio, .form-factura, .form-contrato{grid-template-columns:1fr}
+  .ficha{flex-wrap:wrap} .ficha .acciones{margin-left:0} }
+</style>
+{% endblock %}
 
 {% block contenido %}
-<h1>Consola de cuentas</h1>
-<p class="sub">
-  Mini sistema legado de la POC, aparte de Care AI: tiene su propia base y su propia bitacora.
-  Care AI escribe aqui solo a traves de sus herramientas, como lo haria con los sistemas reales.
-  Las filas resaltadas son las que se modificaron desde la semilla.
-</p>
-
 {% if restaurado %}
-  <div class="aviso"><b>Sistemas restaurados.</b> Todas las cuentas volvieron a los datos iniciales y la bitacora quedo vacia.</div>
+  <div class="aviso" role="status">{{ icono('ok') }}<span><b>Sistemas restaurados.</b> Todas las cuentas volvieron a los datos iniciales y la bitacora quedo vacia.
+    {% if bandeja is not none %}Bandeja de Care AI vacia: {{ bandeja }} caso(s) archivado(s).{% endif %}</span>
+    <button type="button" class="cerrar" aria-label="Cerrar aviso" onclick="this.parentElement.remove()">{{ icono('cerrar', 14) }}</button></div>
+{% endif %}
+{% if ok %}
+  <div class="aviso" role="status">{{ icono('ok') }}<span>{{ ok }}</span>
+    <button type="button" class="cerrar" aria-label="Cerrar aviso" onclick="this.parentElement.remove()">{{ icono('cerrar', 14) }}</button></div>
+{% endif %}
+{% if error %}
+  <div class="aviso error" role="alert">{{ icono('alerta') }}<span><b>El sistema rechazo la operacion.</b> {{ error }}</span>
+    <button type="button" class="cerrar" aria-label="Cerrar aviso" onclick="this.parentElement.remove()">{{ icono('cerrar', 14) }}</button></div>
 {% endif %}
 
-<nav class="cuentas" aria-label="Cuentas">
-  {% for c in cuentas %}
-    <a href="/?cuenta={{ c.cuenta_id }}" class="{{ 'activo' if c.cuenta_id == elegida }}">
-      {{ c.razon_social }}<small>{{ c.cuenta_id }} &middot; {{ c.dominio }}</small>
-    </a>
+{% if not datos %}
+  <div class="vacio">
+    <p>No hay cuentas en el mini sistema.</p>
+    <a class="boton primario" href="/clientes/nuevo">{{ icono('mas') }} Crear un cliente de prueba</a>
+  </div>
+{% else %}
+{% set c = datos.cuenta %}
+{% set abiertos = datos.tickets | selectattr('estado', 'in', ['abierto', 'en_proceso', 'en_espera']) | list %}
+
+<header class="ficha">
+  <span class="avatar">{{ c.razon_social | iniciales }}</span>
+  <div>
+    <h1>{{ c.razon_social }}</h1>
+    <div class="meta">
+      <span class="pill neutro">{{ c.cuenta_id }}</span>
+      <span class="pill {{ 'ok' if c.estado == 'activo' else 'alerta' }}">{{ c.estado }}</span>
+      <span>{{ c.segmento }}</span>
+      {% if c.dominio | dominio %}<span>&middot; <span class="mono">@{{ c.dominio | dominio }}</span></span>{% endif %}
+      {% if datos.creada %}<span class="pill prueba">cliente de prueba</span>{% endif %}
+    </div>
+  </div>
+  <div class="acciones">
+    <a class="boton" href="#crm-alta" data-ir="crm-alta">{{ icono('crm') }} Agregar contacto</a>
+    {% if datos.creada %}
+    <button type="button" class="peligro" data-dialogo="dlg-eliminar">{{ icono('borrar') }} Eliminar</button>
+    {% endif %}
+  </div>
+</header>
+
+<nav class="pestanas" role="tablist" aria-label="Sistemas de la cuenta">
+  {% for id, nombre, ico, n in [
+      ('crm', 'CRM', 'crm', datos.contactos | length),
+      ('contrato', 'Contrato', 'contrato', none),
+      ('red', 'Red', 'red', datos.servicios | length),
+      ('facturacion', 'Facturacion', 'factura', datos.facturas | length),
+      ('mesa', 'Mesa de servicio', 'mesa', abiertos | length),
+      ('bitacora', 'Bitacora', 'bitacora', datos.operaciones | length)] %}
+    <a href="#{{ id }}" role="tab" id="t-{{ id }}" aria-controls="p-{{ id }}" data-pestana="{{ id }}"
+       aria-selected="{{ 'true' if loop.first else 'false' }}">{{ icono(ico, 15) }} {{ nombre }}{% if n is not none %} <span class="cuenta">{{ n }}</span>{% endif %}</a>
   {% endfor %}
 </nav>
 
-{% if not datos %}
-  <div class="vacio"><p>No hay cuentas en el mini sistema.</p></div>
-{% else %}
+{# ---------------------------------------------------------------------- CRM #}
+<section class="panel activo" id="p-crm" role="tabpanel" aria-labelledby="t-crm" data-titulo="CRM">
+  <div class="rejilla" style="grid-template-columns:minmax(240px,1fr) minmax(0,2fr)">
+    <section class="tarjeta editable">
+      <form method="post" action="/clientes/{{ c.cuenta_id }}/editar">
+      <div class="encabezado-panel" style="margin-bottom:10px"><h2>Cuenta</h2>
+        <button type="button" class="icono-btn lectura" data-editar title="Editar cuenta" aria-label="Editar cuenta">{{ icono('editar', 15) }}</button></div>
+      <dl class="datos">
+        <dt>Cuenta</dt><dd>{{ c.cuenta_id }}</dd>
+        <dt>Razon social</dt><dd><span class="lectura">{{ c.razon_social }}</span>
+          <input class="edicion" type="text" name="razon_social" required value="{{ c.razon_social }}" aria-label="Razon social"></dd>
+        <dt>Segmento</dt><dd><span class="lectura">{{ c.segmento }}</span>
+          <select class="edicion" name="segmento" aria-label="Segmento">
+            {% set opciones = segmentos if c.segmento in segmentos else [c.segmento] + segmentos | list %}
+            {% for s in opciones %}<option {{ 'selected' if s == c.segmento }}>{{ s }}</option>{% endfor %}
+          </select></dd>
+        <dt>Estado</dt><dd><span class="lectura">{{ c.estado }}</span>
+          <select class="edicion" name="estado" aria-label="Estado">
+            {% for e in estados_cuenta %}<option {{ 'selected' if e == c.estado }}>{{ e }}</option>{% endfor %}
+          </select></dd>
+        <dt>Dominio</dt><dd><span class="lectura">{{ (c.dominio | dominio) or 'sin dominio corporativo' }}</span>
+          <input class="edicion" type="text" name="dominio" value="{{ c.dominio | dominio }}" placeholder="sin dominio corporativo" aria-label="Dominio"></dd>
+      </dl>
+      <div class="botones-edicion edicion">
+        <button type="button" data-cancelar>Cancelar</button>
+        <button type="submit" class="primario">Guardar</button>
+      </div>
+      </form>
+    </section>
+    <div>
+      <div class="encabezado-panel"><h2>Contactos</h2></div>
+      <div class="tabla-scroll">
+      <table style="min-width:480px">
+        <thead><tr><th>Correo</th><th>Nombre</th><th>Permiso</th><th></th></tr></thead>
+        <tbody>
+        {% for k in datos.contactos %}
+          {# Los campos van con form=: un <form> no puede envolver una fila de tabla. #}
+          {% set fk = 'fk-' ~ loop.index %}
+          <tr class="editable">
+            <td class="mono"><span class="lectura">{{ k.correo }} {{ de_prueba(k.correo) }}</span>
+              <input class="edicion" type="email" name="correo" form="{{ fk }}" required value="{{ k.correo }}" aria-label="Correo"></td>
+            <td><span class="lectura">{{ k.nombre or '-' }}</span>
+              <input class="edicion" type="text" name="nombre" form="{{ fk }}" value="{{ k.nombre }}" placeholder="Opcional" aria-label="Nombre"></td>
+            <td><span class="lectura pill {{ 'ok' if k.autorizado else 'alerta' }}">{{ 'autorizado' if k.autorizado else 'no autorizado' }}</span>
+              <select class="edicion" name="autorizado" form="{{ fk }}" aria-label="Permiso">
+                <option value="1" {{ 'selected' if k.autorizado }}>Autorizado</option>
+                <option value="0" {{ 'selected' if not k.autorizado }}>No autorizado</option>
+              </select></td>
+            <td style="text-align:right; white-space:nowrap">
+              <span class="lectura">
+                <button type="button" class="icono-btn" data-editar title="Editar contacto" aria-label="Editar contacto {{ k.correo }}">{{ icono('editar', 14) }}</button>
+                {% if k.correo in datos.altas %}
+                <form method="post" action="/clientes/{{ c.cuenta_id }}/contactos/eliminar" style="display:inline">
+                  <input type="hidden" name="correo" value="{{ k.correo }}">
+                  <button type="submit" class="mini peligro" title="Eliminar contacto">{{ icono('borrar', 13) }}</button>
+                </form>
+                {% endif %}
+              </span>
+              <form class="edicion botones-edicion" id="{{ fk }}" method="post" action="/clientes/{{ c.cuenta_id }}/contactos/editar">
+                <input type="hidden" name="correo_actual" value="{{ k.correo }}">
+                <button type="button" class="mini" data-cancelar>Cancelar</button>
+                <button type="submit" class="mini primario">Guardar</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <details class="alta" id="crm-alta">
+        <summary>{{ icono('mas', 15) }} Agregar contacto</summary>
+        <form method="post" action="/clientes/{{ c.cuenta_id }}/contactos" class="fila-form form-contacto">
+          <label class="campo"><span>Correo</span><input type="email" name="correo" required placeholder="nombre@empresa.com"></label>
+          <label class="campo"><span>Nombre</span><input type="text" name="nombre" placeholder="Opcional"></label>
+          <label class="campo"><span>Permiso</span>
+            <select name="autorizado"><option value="1">Autorizado</option><option value="0">No autorizado</option></select></label>
+          <button type="submit" class="primario">Agregar</button>
+        </form>
+      </details>
+    </div>
+  </div>
+</section>
 
-<div class="rejilla">
-  <section class="tarjeta">
-    <div class="encabezado-tarjeta"><h2>CRM &middot; cuenta</h2></div>
-    <dl class="datos">
-      <dt>Cuenta</dt><dd>{{ datos.cuenta.cuenta_id }}</dd>
-      <dt>Razon social</dt><dd>{{ datos.cuenta.razon_social }}</dd>
-      <dt>Segmento</dt><dd>{{ datos.cuenta.segmento }}</dd>
-      <dt>Estado</dt><dd>{{ datos.cuenta.estado }}</dd>
-    </dl>
-    <div class="etiqueta">Contactos</div>
-    <ul class="checks">
-      {% for c in datos.contactos %}
-      <li><span class="pill {{ 'ok' if c.autorizado else 'alerta' }}">{{ 'autorizado' if c.autorizado else 'no autorizado' }}</span>
-          <span class="mono">{{ c.correo }}</span></li>
-      {% endfor %}
-    </ul>
-  </section>
-
-  <section class="tarjeta">
-    <div class="encabezado-tarjeta"><h2>Contratos</h2></div>
-    {% if datos.contrato %}
+{# ----------------------------------------------------------------- Contrato #}
+<section class="panel" id="p-contrato" role="tabpanel" aria-labelledby="t-contrato" data-titulo="Contrato">
+  {% if datos.contrato %}
+  <section class="tarjeta" style="max-width:520px">
+    <div class="encabezado-panel"><h2>Contrato {{ datos.contrato.contrato }}</h2>{{ de_prueba(datos.contrato.contrato) }}</div>
     <dl class="datos">
       <dt>Contrato</dt><dd>{{ datos.contrato.contrato }}</dd>
       <dt>Vigente hasta</dt><dd>{{ datos.contrato.vigencia_hasta }}</dd>
@@ -55,39 +205,85 @@
       <dt>Upgrade sin adendum</dt><dd>{{ 'si' if datos.contrato.permite_upgrade_sin_adendum else 'no' }}</dd>
       <dt>Permanencia</dt><dd>{{ datos.contrato.clausula_permanencia_meses }} meses</dd>
     </dl>
-    {% else %}<p class="sub" style="margin:0">Sin contrato registrado.</p>{% endif %}
   </section>
-</div>
+  {% else %}
+  <p class="sub">Sin contrato registrado. Sin contrato el copiloto no puede comparar las facturas contra lo pactado.</p>
+  <details class="alta" id="contrato-alta" open>
+    <summary>{{ icono('mas', 15) }} Registrar contrato</summary>
+    <form method="post" action="/clientes/{{ c.cuenta_id }}/contrato" class="fila-form form-contrato">
+      <label class="campo"><span>Vigente hasta</span><input type="date" name="vigencia" required value="2027-12-31"></label>
+      <label class="campo"><span>Valor mensual (COP)</span><input type="number" name="valor" required min="1" step="1000" placeholder="6200000"></label>
+      <label class="campo"><span>Upgrade sin adendum</span>
+        <select name="upgrade"><option value="1">Si</option><option value="0">No</option></select></label>
+      <label class="campo"><span>Permanencia (meses)</span><input type="number" name="permanencia" min="0" value="12"></label>
+      <button type="submit" class="primario">Registrar</button>
+    </form>
+  </details>
+  {% endif %}
+</section>
 
-<section class="seccion">
-  <h2>Red &middot; servicios</h2>
+{# ---------------------------------------------------------------------- Red #}
+<section class="panel" id="p-red" role="tabpanel" aria-labelledby="t-red" data-titulo="Red">
+  <div class="encabezado-panel"><h2>Servicios</h2></div>
   <div class="tabla-scroll">
   <table class="compacta">
     <thead><tr><th>Servicio</th><th>Sede</th><th style="text-align:right">Ancho de banda</th><th>Nodo</th><th style="text-align:right">Libre en nodo</th></tr></thead>
     <tbody>
     {% for s in datos.servicios %}
       <tr class="{{ tocado(s.servicio_id) }}">
-        <td class="mono">{{ s.servicio_id }}</td>
-        <td>{{ s.sede }}<br><span class="mono" style="color:var(--tenue)">{{ s.producto }}</span></td>
+        <td class="mono">{{ s.servicio_id }} {{ de_prueba(s.servicio_id) }}</td>
+        <td>{{ s.sede }}<br><span class="mono tenue">{{ s.producto }}</span></td>
         <td class="num"><b>{{ s.ancho_banda_mbps }} Mbps</b></td>
         <td class="mono">{{ s.nodo }} <span class="pill {{ 'ok' if s.estado_nodo == 'saludable' else 'falla' }}">{{ s.estado_nodo }}</span></td>
         <td class="num">{{ s.capacidad_libre_mbps }} Mbps</td>
       </tr>
+    {% else %}
+      <tr><td colspan="5" class="tenue">Sin servicios. Sin uno el copiloto no tiene que ampliar.</td></tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
+  <details class="alta" id="red-alta">
+    <summary>{{ icono('mas', 15) }} Agregar servicio</summary>
+    <form method="post" action="/clientes/{{ c.cuenta_id }}/servicios" class="fila-form form-servicio">
+      <label class="campo"><span>Sede</span><input type="text" name="sede" required placeholder="Bogota - Sede Norte"></label>
+      <label class="campo"><span>Producto</span><input type="text" name="producto" value="Internet Dedicado"></label>
+      <label class="campo"><span>Mbps</span><input type="number" name="mbps" required min="1" value="100"></label>
+      <label class="campo"><span>Nodo</span>
+        <select name="nodo">
+          {% for n in nodos %}<option value="{{ n.nodo }}">{{ n.nodo }} &middot; {{ n.estado }} &middot; {{ n.capacidad_libre_mbps }} libres</option>{% endfor %}
+        </select></label>
+      <button type="submit" class="primario">Agregar</button>
+    </form>
+  </details>
+
+  <div class="bloque">
+    <div class="encabezado-panel"><h2>Inventario de nodos</h2><span class="tenue" style="font-size:12.5px">compartido por todas las cuentas</span></div>
+    <div class="tabla-scroll">
+    <table style="min-width:360px">
+      <thead><tr><th>Nodo</th><th>Estado</th><th style="text-align:right">Capacidad libre</th></tr></thead>
+      <tbody>
+      {% for n in nodos %}
+        <tr><td class="mono">{{ n.nodo }}</td>
+          <td><span class="pill {{ 'ok' if n.estado == 'saludable' else 'falla' }}">{{ n.estado }}</span></td>
+          <td class="num">{{ n.capacidad_libre_mbps }} Mbps</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
 </section>
 
-<section class="seccion">
-  <h2>Facturacion</h2>
+{# -------------------------------------------------------------- Facturacion #}
+<section class="panel" id="p-facturacion" role="tabpanel" aria-labelledby="t-facturacion" data-titulo="Facturacion">
+  <div class="encabezado-panel"><h2>Facturas</h2></div>
   <div class="tabla-scroll">
   <table class="compacta">
     <thead><tr><th>Factura</th><th>Periodo</th><th style="text-align:right">Facturado</th><th style="text-align:right">Notas credito</th><th style="text-align:right">Neto</th><th style="text-align:right">Vs. pactado</th><th>Estado</th></tr></thead>
     <tbody>
     {% for f in datos.facturas %}
       <tr class="{{ tocado(f.factura) }}">
-        <td class="mono">{{ f.factura }}</td>
+        <td class="mono">{{ f.factura }} {{ de_prueba(f.factura) }}</td>
         <td class="mono">{{ f.periodo }}</td>
         <td class="num">{{ f.valor | cop }}</td>
         <td class="num">{{ ('-' ~ (f.ajustes | cop)) if f.ajustes else '-' }}</td>
@@ -98,26 +294,42 @@
         </td>
         <td>{{ f.estado }}</td>
       </tr>
+    {% else %}
+      <tr><td colspan="7" class="tenue">Sin facturas.</td></tr>
     {% endfor %}
     </tbody>
   </table>
   </div>
+  <details class="alta" id="facturacion-alta">
+    <summary>{{ icono('mas', 15) }} Agregar factura</summary>
+    <form method="post" action="/clientes/{{ c.cuenta_id }}/facturas" class="fila-form form-factura">
+      <label class="campo"><span>Periodo</span><input type="month" name="periodo" required value="2026-09"></label>
+      <label class="campo"><span>Valor (COP)</span><input type="number" name="valor" required min="1" step="1000"
+             value="{{ datos.contrato.valor_mensual_pactado if datos.contrato }}"></label>
+      <label class="campo"><span>Estado</span>
+        <select name="estado">{% for e in estados_factura %}<option>{{ e }}</option>{% endfor %}</select></label>
+      <button type="submit" class="primario">Agregar</button>
+    </form>
+  </details>
   {% if datos.notas_credito %}
-  <div class="etiqueta">Notas credito emitidas</div>
-  <ul class="checks">
-    {% for n in datos.notas_credito %}
-    <li><span class="pill ok">{{ n.nota }}</span>
-        <span><span class="mono">{{ n.valor | cop }} COP</span> contra <span class="mono">{{ n.factura }}</span> &middot; {{ n.motivo }}
-        <span class="mono" style="color:var(--tenue)">&middot; {{ n.creada_en | fecha }}</span></span></li>
-    {% endfor %}
-  </ul>
+  <div class="bloque">
+    <div class="encabezado-panel"><h2>Notas credito emitidas</h2></div>
+    <ul class="checks">
+      {% for n in datos.notas_credito %}
+      <li><span class="pill ok">{{ n.nota }}</span>
+          <span><span class="mono">{{ n.valor | cop }} COP</span> contra <span class="mono">{{ n.factura }}</span> &middot; {{ n.motivo }}
+          <span class="mono tenue">&middot; {{ n.creada_en | fecha }}</span></span></li>
+      {% endfor %}
+    </ul>
+  </div>
   {% endif %}
 </section>
 
-<section class="seccion">
-  <h2>Mesa de servicio &middot; tickets</h2>
+{# --------------------------------------------------------------------- Mesa #}
+<section class="panel" id="p-mesa" role="tabpanel" aria-labelledby="t-mesa" data-titulo="Mesa de servicio">
+  <div class="encabezado-panel"><h2>Tickets</h2></div>
   {% if not datos.tickets %}
-    <p class="sub">Sin tickets.</p>
+    <p class="sub">Sin tickets. Los crea el copiloto cuando atiende un caso.</p>
   {% else %}
   <div class="tabla-scroll">
   <table class="compacta">
@@ -125,14 +337,14 @@
     <tbody>
     {% for t in datos.tickets %}
       <tr class="{{ tocado(t.ticket) }}">
-        <td class="mono">{{ t.ticket }}<br><span style="color:var(--tenue)">{{ t.tema }}</span></td>
+        <td class="mono">{{ t.ticket }}<br><span class="tenue">{{ t.tema }}</span></td>
         <td>
           {{ t.asunto }}
           {% if t.notas %}
-          <details style="margin:4px 0 0">
+          <details class="notas" style="margin:4px 0 0">
             <summary>{{ t.notas | length }} nota(s)</summary>
             <ul class="checks" style="margin-top:6px">
-              {% for n in t.notas %}<li><span class="mono" style="color:var(--tenue)">{{ n.creada_en | fecha }}</span> {{ n.texto }}</li>{% endfor %}
+              {% for n in t.notas %}<li><span class="mono tenue">{{ n.creada_en | fecha }}</span> {{ n.texto }}</li>{% endfor %}
             </ul>
           </details>
           {% endif %}
@@ -148,9 +360,9 @@
   {% endif %}
 </section>
 
-<section class="seccion">
-  <h2>Bitacora de operaciones</h2>
-  <p class="sub">Cada escritura en los sistemas, la mas reciente arriba.</p>
+{# ----------------------------------------------------------------- Bitacora #}
+<section class="panel" id="p-bitacora" role="tabpanel" aria-labelledby="t-bitacora" data-titulo="Bitacora">
+  <div class="encabezado-panel"><h2>Bitacora de operaciones</h2></div>
   {% if not datos.operaciones %}
     <p class="sub">Todavia no se ha escrito nada en esta cuenta.</p>
   {% else %}
@@ -164,10 +376,10 @@
         <td><span class="pill neutro">{{ o.sistema }}</span> <span class="mono">{{ o.operacion }}</span></td>
         <td class="mono">{{ o.referencia }}</td>
         <td>
-          {% for c in o.cambios %}
-            <div class="cambio">{{ c.campo }}: {% if c.antes is not none %}<s>{{ c.antes }}</s> &rarr; {% endif %}<b>{{ c.despues }}</b></div>
+          {% for x in o.cambios %}
+            <div class="cambio">{{ x.campo }}: {% if x.antes is not none %}<s>{{ x.antes }}</s> &rarr; {% endif %}<b>{{ x.despues }}</b></div>
           {% endfor %}
-          {% if o.detalle %}<div style="color:var(--tenue); font-size:12.5px">{{ o.detalle }}</div>{% endif %}
+          {% if o.detalle %}<div class="tenue" style="font-size:12.5px">{{ o.detalle }}</div>{% endif %}
         </td>
         <td class="mono">{{ o.caso_id or '-' }}</td>
       </tr>
@@ -177,14 +389,98 @@
   </div>
   {% endif %}
 </section>
-
-<form class="restaurar" method="post" action="/restaurar">
-  <input type="hidden" name="cuenta" value="{{ elegida }}">
-  <span><b>Restaurar la semilla:</b> devuelve todas las cuentas a los datos iniciales y vacia la bitacora.
-    No toca la bandeja de Care AI.</span>
-  <label><input type="checkbox" name="confirmo" value="1" required> Entiendo que se pierde lo escrito</label>
-  <button type="submit" class="peligro">Restaurar</button>
-</form>
-
 {% endif %}
+{% endblock %}
+
+{% block dialogos %}
+{% if datos and datos.creada %}
+<dialog id="dlg-eliminar" aria-labelledby="dlg-eliminar-t">
+  <form method="post" action="/clientes/{{ datos.cuenta.cuenta_id }}/eliminar">
+    <div class="dlg-titulo" id="dlg-eliminar-t">{{ icono('borrar') }} Eliminar cliente de prueba
+      <button type="button" data-cerrar aria-label="Cerrar">{{ icono('cerrar') }}</button></div>
+    <div class="dlg-cuerpo">
+      <p style="margin:0">Se borra <b>{{ datos.cuenta.razon_social }}</b> ({{ datos.cuenta.cuenta_id }}) con sus contactos,
+        servicios, contrato, facturas, tickets y bitacora. Los casos que ya tenga en la bandeja de Care AI se quedan alli.</p>
+      <label class="casilla"><input type="checkbox" name="confirmo" value="1" required> Si, eliminarlo</label>
+    </div>
+    <div class="dlg-botones">
+      <button type="button" data-cerrar>Cancelar</button>
+      <button type="submit" class="peligro">Eliminar</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var pestanas = document.querySelectorAll('[role="tab"]');
+  if (!pestanas.length) return;
+
+  function mostrar(hash, conFoco) {
+    var partes = (hash || "").replace("#", "").split("-");
+    var nombre = partes[0], alta = partes[1] === "alta";
+    if (!document.getElementById("p-" + nombre)) nombre = "crm";
+    pestanas.forEach(function (t) { t.setAttribute("aria-selected", t.dataset.pestana === nombre ? "true" : "false"); });
+    document.querySelectorAll(".panel").forEach(function (p) { p.classList.toggle("activo", p.id === "p-" + nombre); });
+    if (alta) {
+      var d = document.getElementById(nombre + "-alta");
+      if (d) { d.open = true; var i = d.querySelector("input,select"); if (i) i.focus(); }
+    } else if (conFoco) {
+      document.getElementById("t-" + nombre).focus();
+    }
+    try { sessionStorage.setItem("sistemas-pestana", nombre); } catch (e) {}
+  }
+
+  pestanas.forEach(function (t, i) {
+    t.addEventListener("click", function (e) {
+      e.preventDefault();
+      history.replaceState(null, "", "#" + t.dataset.pestana);
+      mostrar(t.dataset.pestana);
+    });
+    // Flechas izquierda/derecha entre pestanas, como en un control de escritorio.
+    t.addEventListener("keydown", function (e) {
+      var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!d) return;
+      var sig = pestanas[(i + d + pestanas.length) % pestanas.length];
+      history.replaceState(null, "", "#" + sig.dataset.pestana);
+      mostrar(sig.dataset.pestana, true);
+    });
+  });
+  document.querySelectorAll("[data-ir]").forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      e.preventDefault();
+      history.replaceState(null, "", "#" + a.dataset.ir);
+      mostrar(a.dataset.ir);
+    });
+  });
+  window.addEventListener("hashchange", function () { mostrar(location.hash); });
+
+  function cancelar(e) {
+    e.classList.remove("editando");
+    e.querySelectorAll("form").forEach(function (f) { f.reset(); });
+  }
+  document.querySelectorAll("[data-editar]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var e = b.closest(".editable");
+      document.querySelectorAll(".editable.editando").forEach(cancelar);
+      e.classList.add("editando");
+      var campo = e.querySelector("input.edicion, select.edicion");
+      if (campo) campo.focus();
+    });
+  });
+  document.querySelectorAll("[data-cancelar]").forEach(function (b) {
+    b.addEventListener("click", function () { cancelar(b.closest(".editable")); });
+  });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") document.querySelectorAll(".editable.editando").forEach(cancelar);
+  });
+
+  // Sin hash, la ultima pestana vista: al saltar de un cliente a otro se sigue en el mismo sistema.
+  var ultima = "";
+  try { ultima = sessionStorage.getItem("sistemas-pestana") || ""; } catch (e) {}
+  mostrar(location.hash || ultima);
+})();
+</script>
 {% endblock %}

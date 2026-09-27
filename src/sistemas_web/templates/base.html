@@ -1,10 +1,13 @@
+{% from "_iconos.html" import icono %}
 <!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block titulo %}Sistemas legados{% endblock %}</title>
+<title>{% block titulo %}Sistema CORE{% endblock %}</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f766e' stroke-width='2.2' stroke-linecap='round'%3E%3Cellipse cx='12' cy='5' rx='8' ry='3'/%3E%3Cpath d='M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3'/%3E%3C/svg%3E">
 <script>
+  document.documentElement.classList.add("js");
   try { var t = localStorage.getItem("sistemas-tema"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 <style>
@@ -12,94 +15,170 @@
    Consola del sistema legado. A proposito NO usa la identidad de
    Care AI: gris pizarra, acento verde azulado, fuente del sistema.
    En la demo tiene que verse como otro producto, porque lo es.
+   Se presenta como una aplicacion de escritorio: barra de titulo,
+   barra de herramientas, lista lateral y barra de estado.
    ================================================================ */
 :root{
-  --fondo:#eef1f4; --panel:#ffffff; --fondo-2:#e4e8ed;
+  --fondo:#e9edf1; --panel:#ffffff; --fondo-2:#f3f5f8; --fondo-3:#dfe4ea;
   --borde:#d3d9e0; --borde-fuerte:#aab4c0;
   --texto:#1c2530; --tenue:#5d6b7a;
-  --acento:#0f766e; --acento-suave:#dff3f1; --acento-texto:#ffffff;
-  --barra:#1f2a36; --barra-texto:#e6ebf0;
+  --acento:#0f766e; --acento-suave:#dff3f1; --acento-texto:#ffffff; --acento-hover:#0d625b;
+  --titulo:#1f2a36; --titulo-texto:#e6ebf0;
+  --lateral:#f6f8fa; --hover:rgba(15,40,70,.06); --sel:#d7eeeb;
   --ok:#15803d;     --ok-bg:#e3f4e8;
   --alerta:#a15c07; --alerta-bg:#fdf1d8;
   --falla:#b91c1c;  --falla-bg:#fbe7e7;
   --abierto:#0369a1; --abierto-bg:#e0f0fa;
   --progreso:#0f766e; --progreso-bg:#dff3f1;
   --resuelto:#64748b; --resuelto-bg:#eceff3;
+  --sombra:0 8px 28px rgba(15,30,45,.18), 0 1px 3px rgba(15,30,45,.12);
   --radio:6px;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --mono:"Cascadia Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --fondo:#12171d; --panel:#1a2129; --fondo-2:#222b35;
+    --fondo:#12171d; --panel:#1a2129; --fondo-2:#161c23; --fondo-3:#222b35;
     --borde:#2d3843; --borde-fuerte:#43515f;
     --texto:#e3e8ee; --tenue:#96a3b1;
-    --acento:#2dd4bf; --acento-suave:rgba(45,212,191,.12); --acento-texto:#0b1f1d;
-    --barra:#0b0f14; --barra-texto:#e3e8ee;
+    --acento:#2dd4bf; --acento-suave:rgba(45,212,191,.12); --acento-texto:#0b1f1d; --acento-hover:#5eead4;
+    --titulo:#0b0f14; --titulo-texto:#e3e8ee;
+    --lateral:#151b22; --hover:rgba(255,255,255,.05); --sel:rgba(45,212,191,.16);
     --ok:#4ade80;     --ok-bg:rgba(74,222,128,.10);
     --alerta:#fbbf24; --alerta-bg:rgba(251,191,36,.12);
     --falla:#f87171;  --falla-bg:rgba(248,113,113,.12);
     --abierto:#38bdf8; --abierto-bg:rgba(56,189,248,.12);
     --progreso:#2dd4bf; --progreso-bg:rgba(45,212,191,.12);
     --resuelto:#94a3b8; --resuelto-bg:rgba(148,163,184,.12);
+    --sombra:0 8px 28px rgba(0,0,0,.5), 0 1px 3px rgba(0,0,0,.4);
     color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --fondo:#12171d; --panel:#1a2129; --fondo-2:#222b35;
+  --fondo:#12171d; --panel:#1a2129; --fondo-2:#161c23; --fondo-3:#222b35;
   --borde:#2d3843; --borde-fuerte:#43515f;
   --texto:#e3e8ee; --tenue:#96a3b1;
-  --acento:#2dd4bf; --acento-suave:rgba(45,212,191,.12); --acento-texto:#0b1f1d;
-  --barra:#0b0f14; --barra-texto:#e3e8ee;
+  --acento:#2dd4bf; --acento-suave:rgba(45,212,191,.12); --acento-texto:#0b1f1d; --acento-hover:#5eead4;
+  --titulo:#0b0f14; --titulo-texto:#e3e8ee;
+  --lateral:#151b22; --hover:rgba(255,255,255,.05); --sel:rgba(45,212,191,.16);
   --ok:#4ade80;     --ok-bg:rgba(74,222,128,.10);
   --alerta:#fbbf24; --alerta-bg:rgba(251,191,36,.12);
   --falla:#f87171;  --falla-bg:rgba(248,113,113,.12);
   --abierto:#38bdf8; --abierto-bg:rgba(56,189,248,.12);
   --progreso:#2dd4bf; --progreso-bg:rgba(45,212,191,.12);
   --resuelto:#94a3b8; --resuelto-bg:rgba(148,163,184,.12);
+  --sombra:0 8px 28px rgba(0,0,0,.5), 0 1px 3px rgba(0,0,0,.4);
   color-scheme:dark;
 }
 
 *{box-sizing:border-box}
-body{margin:0; min-height:100vh; background:var(--fondo); color:var(--texto); font:14px/1.5 var(--sans)}
+html,body{height:100%}
+body{margin:0; background:var(--fondo); color:var(--texto); font:13.5px/1.5 var(--sans)}
 a{color:var(--acento)}
-.envoltura{max-width:1040px; margin:0 auto; padding:0 16px 64px}
-
-header.barra{background:var(--barra); color:var(--barra-texto)}
-header.barra .envoltura{display:flex; align-items:center; gap:12px; padding-top:10px; padding-bottom:10px}
-.marca{font-weight:650; letter-spacing:.01em; margin-right:auto}
-.marca small{font-weight:400; opacity:.65; margin-left:8px; font-size:12.5px}
-.tema{font:inherit; font-size:12.5px; padding:4px 10px; border-radius:var(--radio); cursor:pointer;
-  background:transparent; color:var(--barra-texto); border:1px solid rgba(255,255,255,.25)}
-
-h1{font-size:21px; font-weight:650; margin:26px 0 4px}
-h2{font-size:14.5px; font-weight:650; margin:0}
-.sub{color:var(--tenue); font-size:13.5px; margin:0 0 18px; max-width:76ch}
+.ico{flex:none; display:block}
 .mono{font-family:var(--mono); font-size:12.5px}
+.tenue{color:var(--tenue)}
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible{
+  outline:2px solid var(--acento); outline-offset:1px}
 
-.aviso{border:1px solid var(--borde); border-left:3px solid var(--acento); background:var(--panel);
-  border-radius:0 var(--radio) var(--radio) 0; padding:10px 14px; margin:14px 0; font-size:13.5px}
+/* ---------------- Ventana ---------------- */
+.ventana{height:100vh; display:grid; grid-template-rows:auto auto minmax(0,1fr) auto; overflow:hidden}
+
+.barra-titulo{display:flex; align-items:center; gap:10px; height:34px; padding:0 6px 0 12px;
+  background:var(--titulo); color:var(--titulo-texto); font-size:12.5px; user-select:none;
+  position:relative; z-index:30}
+.barra-titulo .ico{color:#2dd4bf}
+.barra-titulo b{font-weight:600}
+
+/* engranaje: acciones de mantenimiento */
+.ajustes{margin-left:auto; position:relative}
+.ajustes summary{list-style:none; display:grid; place-items:center; width:28px; height:26px;
+  border-radius:5px; cursor:default; opacity:.8}
+.ajustes summary::-webkit-details-marker{display:none}
+.ajustes summary:hover, .ajustes[open] summary{background:rgba(255,255,255,.12); opacity:1}
+.ajustes .ico{color:inherit}
+.ajustes-lista{position:absolute; top:calc(100% + 4px); right:0; min-width:200px; padding:4px;
+  background:var(--panel); color:var(--texto); border:1px solid var(--borde); border-radius:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.ajustes-lista button{display:flex; align-items:center; gap:10px; width:100%; padding:6px 10px;
+  border:0; border-radius:4px; background:none; color:inherit; font:inherit; font-size:13px;
+  text-align:left; cursor:default}
+.ajustes-lista button:hover{background:var(--acento-suave)}
+.ajustes-lista .ico{color:var(--tenue)}
+
+
+/* barra de herramientas */
+.herramientas{display:flex; align-items:center; gap:4px; padding:5px 8px; background:var(--fondo-2);
+  border-bottom:1px solid var(--borde); overflow-x:auto}
+.herramientas .espacio{flex:1}
+.btn-h{display:inline-flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid transparent;
+  border-radius:5px; background:none; color:var(--texto); font:inherit; font-size:13px; text-decoration:none;
+  white-space:nowrap; cursor:default}
+.btn-h:hover{background:var(--hover); border-color:var(--borde)}
+.btn-h.primario{background:var(--acento); color:var(--acento-texto); border-color:var(--acento)}
+.btn-h.primario:hover{background:var(--acento-hover)}
+
+/* cuerpo */
+.cuerpo{display:grid; grid-template-columns:272px minmax(0,1fr); min-height:0}
+
+/* lista lateral */
+.lateral{display:flex; flex-direction:column; min-height:0; background:var(--lateral); border-right:1px solid var(--borde)}
+.buscador{position:relative; padding:10px 10px 6px}
+.buscador .ico{position:absolute; left:20px; top:50%; margin-top:2px; transform:translateY(-50%); color:var(--tenue)}
+.buscador input{width:100%; padding:6px 10px 6px 30px; font:inherit; font-size:13px; color:var(--texto);
+  background:var(--panel); border:1px solid var(--borde); border-bottom-color:var(--borde-fuerte); border-radius:5px}
+.lista-cuentas{overflow-y:auto; padding:0 6px 10px; flex:1}
+.grupo{font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--tenue); font-weight:600;
+  padding:12px 8px 4px; display:flex; justify-content:space-between}
+.item-cuenta{display:flex; gap:10px; align-items:center; padding:7px 8px; border-radius:6px; text-decoration:none;
+  color:var(--texto); position:relative}
+.item-cuenta:hover{background:var(--hover)}
+.item-cuenta.activo{background:var(--sel)}
+.item-cuenta.activo::before{content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px; border-radius:2px; background:var(--acento)}
+.avatar{flex:none; width:30px; height:30px; border-radius:6px; display:grid; place-items:center; font-size:11.5px;
+  font-weight:700; letter-spacing:.02em; background:var(--fondo-3); color:var(--tenue)}
+.item-cuenta.activo .avatar{background:var(--acento); color:var(--acento-texto)}
+.item-cuenta .nombre{display:block; font-weight:600; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.item-cuenta small{display:block; font-family:var(--mono); font-size:11px; color:var(--tenue); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.item-cuenta > span:last-child{min-width:0}
+.sin-resultados{padding:14px 10px; color:var(--tenue); font-size:12.5px; display:none}
+.pie-lateral{padding:8px 10px; border-top:1px solid var(--borde)}
+.pie-lateral .btn-h{width:100%; justify-content:center}
+
+/* contenido */
+.contenido{overflow:auto; min-height:0; padding:18px 22px 40px}
+
+/* barra de estado */
+.barra-estado{display:flex; gap:0; align-items:center; height:24px; padding:0 4px; font-size:11.5px;
+  background:var(--fondo-2); border-top:1px solid var(--borde); color:var(--tenue); white-space:nowrap; overflow:hidden}
+.barra-estado > span{padding:0 10px; border-right:1px solid var(--borde); overflow:hidden; text-overflow:ellipsis}
+.barra-estado > span:last-child{border-right:0}
+.barra-estado .listo{display:flex; align-items:center; gap:6px}
+.barra-estado .listo::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--ok)}
+
+/* ---------------- Piezas comunes ---------------- */
+h1{font-size:19px; font-weight:650; margin:0; line-height:1.3}
+h2{font-size:14px; font-weight:650; margin:0}
+.sub{color:var(--tenue); font-size:13px; margin:0 0 14px; max-width:80ch}
+
+.aviso{display:flex; gap:10px; align-items:flex-start; border:1px solid var(--borde); border-left:3px solid var(--acento);
+  background:var(--panel); border-radius:0 var(--radio) var(--radio) 0; padding:9px 12px; margin:0 0 14px; font-size:13px}
+.aviso .ico{margin-top:2px; color:var(--acento)}
+.aviso.error{border-left-color:var(--falla)} .aviso.error .ico{color:var(--falla)}
+.aviso .cerrar{margin-left:auto; background:none; border:0; color:var(--tenue); padding:2px; cursor:default}
 .vacio{text-align:center; padding:48px 20px; color:var(--tenue); border:1px dashed var(--borde-fuerte);
   border-radius:var(--radio); background:var(--panel)}
 
-.cuentas{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 18px}
-.cuentas a{text-decoration:none; color:var(--texto); border:1px solid var(--borde); border-radius:var(--radio);
-  padding:7px 12px; font-size:13.5px; background:var(--panel)}
-.cuentas a:hover{border-color:var(--borde-fuerte)}
-.cuentas a.activo{border-color:var(--acento); color:var(--acento); background:var(--acento-suave); font-weight:600}
-.cuentas a small{display:block; font-family:var(--mono); font-size:11px; color:var(--tenue); font-weight:400}
-
-.rejilla{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px}
-.tarjeta{border:1px solid var(--borde); border-radius:var(--radio); background:var(--panel); padding:16px 18px}
-.encabezado-tarjeta{margin-bottom:10px}
-dl.datos{display:grid; grid-template-columns:auto 1fr; gap:5px 14px; margin:0; font-size:13.5px}
+.rejilla{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px}
+.tarjeta{border:1px solid var(--borde); border-radius:8px; background:var(--panel); padding:14px 16px}
+dl.datos{display:grid; grid-template-columns:auto 1fr; gap:5px 14px; margin:0; font-size:13px}
 dl.datos dt{color:var(--tenue)}
 dl.datos dd{margin:0; font-family:var(--mono); font-size:12.5px}
 .etiqueta{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--tenue);
   font-weight:600; margin:14px 0 7px}
 ul.checks{list-style:none; padding:0; margin:0; display:grid; gap:6px}
-ul.checks li{display:flex; gap:8px; align-items:flex-start; font-size:13.5px}
+ul.checks li{display:flex; gap:8px; align-items:flex-start; font-size:13px}
 ul.checks li span.pill{flex:none; margin-top:1px}
 
 .pill{display:inline-flex; align-items:center; padding:0 7px; border-radius:4px; font-size:11px; font-weight:600;
@@ -108,55 +187,201 @@ ul.checks li span.pill{flex:none; margin-top:1px}
 .alerta{background:var(--alerta-bg); color:var(--alerta)}
 .falla{background:var(--falla-bg); color:var(--falla)}
 .neutro{color:var(--tenue); border-color:var(--borde)}
+.prueba{color:var(--acento); border-color:var(--acento); background:transparent}
 .estado-abierto{background:var(--abierto-bg); color:var(--abierto)}
 .estado-progreso{background:var(--progreso-bg); color:var(--progreso)}
 .estado-resuelto{background:var(--resuelto-bg); color:var(--resuelto)}
 
-.seccion{margin-top:26px}
-.tabla-scroll{overflow-x:auto; margin-top:10px; background:var(--panel); border:1px solid var(--borde); border-radius:var(--radio)}
+.tabla-scroll{overflow-x:auto; background:var(--panel); border:1px solid var(--borde); border-radius:8px}
 table{width:100%; border-collapse:collapse; min-width:560px}
 th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--tenue);
-  font-weight:600; padding:9px 10px; border-bottom:1px solid var(--borde); background:var(--fondo-2)}
-td{padding:8px 10px; border-bottom:1px solid var(--borde); vertical-align:top; font-size:13px}
+  font-weight:600; padding:8px 10px; border-bottom:1px solid var(--borde); background:var(--fondo-2); position:sticky; top:0}
+td{padding:7px 10px; border-bottom:1px solid var(--borde); vertical-align:top; font-size:13px}
 tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--hover)}
 .num{font-family:var(--mono); font-size:12.5px; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
 /* filas que escribio el copiloto */
 tr.tocado td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
 tr.tocado{background:var(--acento-suave)}
 .cambio{font-family:var(--mono); font-size:12px; white-space:nowrap}
 .cambio s{color:var(--tenue)}
-details{margin:4px 0 0}
-summary{cursor:pointer; font-size:12.5px; color:var(--tenue)}
+details.notas summary{cursor:pointer; font-size:12.5px; color:var(--tenue)}
 
-.restaurar{display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; color:var(--tenue);
-  margin-top:28px; padding-top:16px; border-top:1px solid var(--borde)}
-.restaurar label{display:flex; gap:6px; align-items:center}
-button{font:inherit; font-size:13.5px; font-weight:600; padding:7px 14px; border-radius:var(--radio); cursor:pointer;
-  border:1px solid var(--borde-fuerte); background:var(--panel); color:var(--texto)}
-button.peligro:hover{border-color:var(--falla); color:var(--falla)}
-button:focus-visible, a:focus-visible{outline:2px solid var(--acento); outline-offset:2px}
+/* botones y formularios */
+button, .boton{display:inline-flex; align-items:center; gap:7px; font:inherit; font-size:13px; font-weight:600;
+  padding:6px 14px; border-radius:5px; cursor:default; border:1px solid var(--borde-fuerte);
+  background:var(--panel); color:var(--texto); text-decoration:none}
+button:hover, .boton:hover{background:var(--fondo-2)}
+button.primario, .boton.primario{background:var(--acento); border-color:var(--acento); color:var(--acento-texto)}
+button.primario:hover{background:var(--acento-hover)}
+button.peligro{color:var(--falla)}
+button.peligro:hover{border-color:var(--falla)}
+button.mini{padding:2px 8px; font-size:12px; font-weight:500}
+.campo{display:flex; flex-direction:column; gap:4px; font-size:12.5px; color:var(--tenue); min-width:0}
+.campo > span{font-weight:600}
+input[type=text], input[type=email], input[type=number], input[type=date], input[type=month], select{
+  font:inherit; font-size:13px; color:var(--texto); background:var(--panel); padding:5px 8px; min-width:0; width:100%;
+  border:1px solid var(--borde); border-bottom-color:var(--borde-fuerte); border-radius:5px}
+input:focus, select:focus{border-bottom-color:var(--acento); outline:none; box-shadow:inset 0 -1px 0 var(--acento)}
+label.casilla{display:inline-flex; gap:7px; align-items:center; font-size:13px; color:var(--texto)}
+.fila-form{display:grid; gap:10px; align-items:end}
 
-@media (max-width:640px){ .num{text-align:left} }
+/* dialogos */
+dialog{border:1px solid var(--borde); border-radius:10px; padding:0; background:var(--panel); color:var(--texto);
+  box-shadow:var(--sombra); width:min(460px, calc(100vw - 32px))}
+dialog::backdrop{background:rgba(10,20,30,.4)}
+.dlg-titulo{display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--borde); font-weight:600}
+.dlg-titulo button{margin-left:auto; border:0; background:none; padding:4px}
+.dlg-cuerpo{padding:14px 16px; display:grid; gap:10px; font-size:13px}
+.dlg-botones{display:flex; justify-content:flex-end; gap:8px; padding:12px 16px; background:var(--fondo-2);
+  border-top:1px solid var(--borde); border-radius:0 0 10px 10px}
+
+@media (max-width:760px){
+  .ventana{height:auto; min-height:100vh; overflow:visible}
+  .cuerpo{grid-template-columns:1fr}
+  .lateral{border-right:0; border-bottom:1px solid var(--borde)}
+  .lista-cuentas{max-height:220px}
+  .contenido{overflow:visible; padding:14px 16px 32px}
+  .barra-estado .bd{display:none}
+  .num{text-align:left}
+}
 </style>
+{% block estilos %}{% endblock %}
 </head>
 <body>
-<header class="barra">
-  <div class="envoltura">
-    <span class="marca">Sistemas legados<small>CRM &middot; Facturacion &middot; Contratos &middot; Red &middot; Mesa de servicio</small></span>
-    <button type="button" class="tema" id="tema" aria-label="Cambiar tema claro/oscuro">Tema</button>
+<div class="ventana">
+  <header class="barra-titulo">
+    {{ icono('app', 16) }}
+    <b>Sistema CORE</b>
+    <details class="ajustes">
+      <summary aria-label="Ajustes" title="Ajustes">{{ icono('ajustes') }}</summary>
+      <div class="ajustes-lista">
+        <button type="button" data-accion="actualizar">{{ icono('actualizar') }} Actualizar</button>
+        <button type="button" data-dialogo="dlg-restaurar">{{ icono('restaurar') }} Restaurar&hellip;</button>
+      </div>
+    </details>
+  </header>
+
+  <div class="herramientas" role="toolbar" aria-label="Acciones">
+    <a class="btn-h primario" href="/clientes/nuevo">{{ icono('mas') }} Nuevo cliente</a>
+    <span class="espacio"></span>
+    <button type="button" class="btn-h" data-accion="tema" aria-label="Cambiar tema claro/oscuro">{{ icono('tema') }} Tema</button>
   </div>
-</header>
-<main class="envoltura">
-{% block contenido %}{% endblock %}
-</main>
+
+  <div class="cuerpo">
+    <aside class="lateral" aria-label="Clientes">
+      <div class="buscador">
+        {{ icono('buscar', 14) }}
+        <input type="search" id="buscar" aria-label="Buscar cliente" placeholder="Buscar cliente, cuenta o dominio" autocomplete="off">
+      </div>
+      <div class="lista-cuentas" id="lista-cuentas">
+        {% set base = cuentas | rejectattr('creada') | list %}
+        {% set creadas = cuentas | selectattr('creada') | list %}
+        {% for titulo, grupo in [('Clientes', base), ('Clientes de prueba', creadas)] %}
+          {% if grupo %}
+          <div class="grupo"><span>{{ titulo }}</span><span>{{ grupo | length }}</span></div>
+          {% endif %}
+          {% for c in grupo %}
+            <a href="/?cuenta={{ c.cuenta_id }}" class="item-cuenta {{ 'activo' if c.cuenta_id == elegida }}"
+               data-texto="{{ (c.razon_social ~ ' ' ~ c.cuenta_id ~ ' ' ~ (c.dominio | dominio)) | lower }}">
+              <span class="avatar">{{ c.razon_social | iniciales }}</span>
+              <span>
+                <span class="nombre">{{ c.razon_social }}</span>
+                <small>{{ c.cuenta_id }}{% if c.dominio | dominio %} &middot; {{ c.dominio | dominio }}{% endif %}</small>
+              </span>
+            </a>
+          {% endfor %}
+        {% endfor %}
+        <p class="sin-resultados" id="sin-resultados">Ningun cliente coincide.</p>
+      </div>
+      <div class="pie-lateral">
+        <a class="btn-h" href="/clientes/nuevo">{{ icono('mas') }} Nuevo cliente de prueba</a>
+      </div>
+    </aside>
+
+    <main class="contenido" id="contenido">
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+
+  <footer class="barra-estado">
+    <span class="listo">Listo</span>
+    <span>{{ cuentas | length }} cuentas &middot; {{ n_creadas }} de prueba</span>
+    <span>{{ nodos | length }} nodos de red</span>
+    <span class="bd" title="{{ ruta_db }}">BD: {{ ruta_db }}</span>
+  </footer>
+</div>
+
+<dialog id="dlg-restaurar" aria-labelledby="dlg-restaurar-t">
+  <form method="post" action="/restaurar">
+    <div class="dlg-titulo" id="dlg-restaurar-t">{{ icono('restaurar') }} Restaurar sistemas
+      <button type="button" data-cerrar aria-label="Cerrar">{{ icono('cerrar') }}</button></div>
+    <div class="dlg-cuerpo">
+      <input type="hidden" name="cuenta" value="{{ elegida or '' }}">
+      <p style="margin:0">Devuelve todas las cuentas a sus datos iniciales y vacia la bitacora.</p>
+      <label class="casilla"><input type="checkbox" name="conservar" value="1" checked>
+        Conservar los clientes de prueba (vuelven a su estado inicial)</label>
+      <label class="casilla"><input type="checkbox" name="vaciar_bandeja" value="1" checked>
+        Tambien vaciar la bandeja de Care AI (los casos se archivan)</label>
+      <label class="casilla"><input type="checkbox" name="confirmo" value="1" required>
+        Entiendo que se pierde lo que escribio el copiloto</label>
+    </div>
+    <div class="dlg-botones">
+      <button type="button" data-cerrar>Cancelar</button>
+      <button type="submit" class="peligro">Restaurar</button>
+    </div>
+  </form>
+</dialog>
+
+
+{% block dialogos %}{% endblock %}
+
 <script>
-  document.getElementById("tema").addEventListener("click", function () {
-    var raiz = document.documentElement;
+(function () {
+  var raiz = document.documentElement;
+
+  function tema() {
     var oscuro = raiz.dataset.theme ? raiz.dataset.theme === "dark"
                                     : matchMedia("(prefers-color-scheme: dark)").matches;
     raiz.dataset.theme = oscuro ? "light" : "dark";
     try { localStorage.setItem("sistemas-tema", raiz.dataset.theme); } catch (e) {}
+  }
+
+  var buscar = document.getElementById("buscar");
+  function filtrar() {
+    var q = buscar.value.trim().toLowerCase(), visibles = 0;
+    document.querySelectorAll(".item-cuenta").forEach(function (a) {
+      var si = !q || a.dataset.texto.indexOf(q) !== -1;
+      a.style.display = si ? "" : "none";
+      if (si) visibles++;
+    });
+    document.getElementById("sin-resultados").style.display = visibles ? "none" : "block";
+  }
+  buscar.addEventListener("input", filtrar);
+
+  var ajustes = document.querySelector(".ajustes");
+  document.addEventListener("click", function (e) {
+    // El desplegable se cierra al elegir una opcion o al hacer clic fuera.
+    if (ajustes.open && !e.target.closest(".ajustes summary")) ajustes.open = false;
+    var el = e.target.closest("[data-accion],[data-dialogo],[data-cerrar]");
+    if (!el || el.getAttribute("aria-disabled") === "true") return;
+    if (el.dataset.accion === "tema") tema();
+    else if (el.dataset.accion === "actualizar") location.reload();
+    else if (el.dataset.accion === "buscar") buscar.focus();
+    else if (el.dataset.dialogo) { var d = document.getElementById(el.dataset.dialogo); if (d) d.showModal(); }
+    else if (el.hasAttribute("data-cerrar")) el.closest("dialog").close();
   });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") ajustes.open = false;
+    var escribiendo = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+    if (e.key === "/" && !escribiendo) { e.preventDefault(); buscar.focus(); }
+  });
+
+  // La cuenta elegida visible en la lista aunque haya muchas.
+  var activo = document.querySelector(".item-cuenta.activo");
+  if (activo) activo.scrollIntoView({block: "nearest"});
+})();
 </script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

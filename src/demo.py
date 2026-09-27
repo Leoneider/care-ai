@@ -24,9 +24,9 @@ from . import db, servicio
 from .tracing import anunciar, traza
 
 CORREO = {
-    "message_id": "<CAF-2026-0921-77120@mail.acme.com.co>",
+    "message_id": "<CAF-2026-0921-77120@ufpso.edu.co>",
     "thread_id": "THR-77120",
-    "remitente": "laura.gomez@acme.com.co",
+    "remitente": "ltrigosg@ufpso.edu.co",
     "para": ["care.b2b@operador.com"],
     "asunto": "Ampliacion sede Bogota + revision factura septiembre",
     "cuerpo": (
@@ -35,8 +35,8 @@ CORREO = {
         "el trafico nos viene creciendo y ya estamos al tope.\n\n"
         "Aprovecho tambien: la factura de septiembre llego por un valor distinto "
         "al pactado en el contrato. Les agradezco la revision.\n\n"
-        "Gracias,\nLaura Gomez\n"
-        "--\nLaura Gomez | Gerente de TI | ACME Logistica S.A.S.\n"
+        "Gracias,\nLeoneider Trigos\n"
+        "--\nLeoneider Trigos | UFPSO\n"
     ),
     "adjuntos": [],
 }

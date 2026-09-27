@@ -52,7 +52,9 @@ def bandeja_limpia():
     threads de la anterior.
     """
     db.limpiar()
-    sistemas.restaurar()      # la Fase 2 escribe en el mini sistema: cada prueba parte de la semilla
+    # La Fase 2 escribe en el mini sistema: cada prueba parte de la semilla, sin
+    # los clientes que otra prueba haya dado de alta.
+    sistemas.restaurar(conservar_altas=False)
     servicio.reiniciar()
     yield
     db.limpiar()

@@ -4,6 +4,7 @@
         .\care.cmd up          bandeja + consola de sistemas + poller de Gmail
         .\care.cmd ui          solo la bandeja
         .\care.cmd sistemas    solo la consola del sistema legado (otra app)
+        .\care.cmd ventana     la consola en su propia ventana, como programa de escritorio
         .\care.cmd poller      solo la ingesta
         .\care.cmd studio      el grafo en LangGraph Studio (langgraph dev)
         .\care.cmd estado      que corre y que hay en la bandeja
@@ -27,7 +28,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'ui', 'sistemas', 'poller', 'studio', 'gmail', 'estado', 'stop', 'demo', 'limpiar', 'restaurar', 'reiniciar', 'ayuda')]
+    [ValidateSet('up', 'ui', 'sistemas', 'ventana', 'poller', 'studio', 'gmail', 'estado', 'stop', 'demo', 'limpiar', 'restaurar', 'reiniciar', 'ayuda')]
     [string]$Comando = 'ayuda',
 
     [int]$Puerto = 8000,
@@ -225,6 +226,31 @@ switch ($Comando) {
         Iniciar-Sistemas | Out-Null
         Escribir ""
     }
+    'ventana' {
+        # La consola en una ventana propia (Edge/Chrome en modo app: sin pestanas ni
+        # barra de direcciones), para que en la demo se vea como el programa de
+        # escritorio de otro equipo. Si no esta corriendo, se arranca primero.
+        Confirmar-Entorno
+        $url = "http://127.0.0.1:$PuertoSistemas/"
+        $arriba = $true
+        try { Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2 | Out-Null } catch { $arriba = $false }
+        if (-not $arriba) {
+            Escribir "`nSistemas legados" Cyan
+            if (-not (Iniciar-Sistemas)) { return }
+        }
+        $navegador = @(
+            "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+            "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
+            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe"
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($navegador) {
+            Start-Process -FilePath $navegador -ArgumentList @("--app=$url", '--window-size=1320,860')
+            Escribir "  ventana -> $url" Green
+        } else {
+            Start-Process $url
+            Escribir "  No encontre Edge ni Chrome: se abrio en el navegador por defecto." Yellow
+        }
+    }
     'poller' {
         Confirmar-Entorno
         Escribir "`nCare AI" Cyan
@@ -316,7 +342,8 @@ Cuando lo tengas, vuelve a correr:  .\care.cmd gmail
         # La demo desde cero: archiva los casos (no se reprocesan los correos viejos
         # del buzon) y devuelve los sistemas a la semilla.
         Confirmar-Entorno
-        & $Py -c "from src import servicio; r = servicio.reiniciar_demo(); print(f'Demo reiniciada: {r[\"casos_archivados\"]} caso(s) archivado(s), sistemas en los datos iniciales.')"
+        # Sin comillas dobles dentro del codigo: PowerShell 5.1 parte los \" al pasarlos a un exe.
+        & $Py -c "from src import servicio; r = servicio.reiniciar_demo(); print('Demo reiniciada: %d caso(s) archivado(s), sistemas en los datos iniciales.' % r['casos_archivados'])"
     }
     'restaurar' {
         # El mini sistema legado (CRM, facturacion, red, tickets) vuelve a la semilla
@@ -333,6 +360,7 @@ Care AI - arranque local
   .\care.cmd up          bandeja + sistemas + poller de Gmail
   .\care.cmd ui          solo la bandeja       -> http://127.0.0.1:$Puerto
   .\care.cmd sistemas    solo la consola del sistema legado -> http://127.0.0.1:$PuertoSistemas
+  .\care.cmd ventana     la consola en su propia ventana (modo aplicacion de escritorio)
   .\care.cmd poller      solo la ingesta de Gmail
   .\care.cmd studio      el grafo en LangGraph Studio -> http://127.0.0.1:$PuertoStudio
   .\care.cmd estado      que corre y que hay en la bandeja

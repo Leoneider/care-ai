@@ -26,7 +26,7 @@ ErrorSistema = sistemas.ErrorSistema
 
 
 def _correos_demo() -> set[str]:
-    """Direcciones que se hacen pasar por contacto de ACME, via CARE_CORREO_DEMO.
+    """Direcciones que se hacen pasar por contacto de UFPSO, via CARE_CORREO_DEMO.
 
     ANDAMIO DE DEMO, no parte del diseno. Existe para poder probar contra un buzon
     de Gmail real: si no, todo correo enviado desde una cuenta personal cae en
@@ -43,7 +43,7 @@ def _correos_demo() -> set[str]:
 # --------------------------------------------------------------------------- #
 def crm_buscar_cuenta_por_correo(correo: str) -> dict[str, Any]:
     # parseaddr porque un buzon real no manda la direccion pelada: el header From
-    # llega como 'Laura Gomez <laura.gomez@acme.com.co>' y un split('@') crudo
+    # llega como 'Leoneider Trigos <ltrigosg@ufpso.edu.co>' y un split('@') crudo
     # devolveria el dominio con el '>' pegado, sin encontrar nunca al cliente.
     correo = (parseaddr(correo)[1] or correo).lower().strip()
     dominio = correo.split("@")[-1]
@@ -55,7 +55,7 @@ def crm_buscar_cuenta_por_correo(correo: str) -> dict[str, Any]:
         cuenta, autorizado = sistemas.cuenta_por_dominio(dominio), False
 
     if cuenta is None and correo in _correos_demo():
-        cuenta, autorizado = sistemas.cuenta_por_dominio("acme.com.co"), True
+        cuenta, autorizado = sistemas.cuenta_por_dominio("ufpso.edu.co"), True
 
     if not cuenta:
         return {"encontrado": False}

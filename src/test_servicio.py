@@ -12,7 +12,7 @@ from src.demo import CORREO
 
 
 def _otro_correo(sufijo: str, **campos):
-    return dict(CORREO, message_id=f"<{sufijo}@mail.acme.com.co>", **campos)
+    return dict(CORREO, message_id=f"<{sufijo}@ufpso.edu.co>", **campos)
 
 
 def test_procesar_deja_el_caso_en_la_bandeja():
@@ -21,7 +21,7 @@ def test_procesar_deja_el_caso_en_la_bandeja():
     assert res["estado"] == "pendiente"
     pendientes = servicio.listar(db.PENDIENTE)
     assert [c["thread_id"] for c in pendientes] == [res["thread_id"]]
-    assert pendientes[0]["cuenta"] == "B2B-004712"
+    assert pendientes[0]["cuenta"] == "B2B-005130"
     assert pendientes[0]["n_solicitudes"] == 2
 
 
@@ -35,7 +35,7 @@ def test_detalle_trae_el_caso_completo_del_checkpointer():
     assert det["opciones"] == ["aprobar", "editar", "rechazar"]
     sol = det["caso"]["solicitudes"][0]
     assert sol["validaciones"] and sol["acciones"]
-    assert det["correo"]["message_id"] == "<c2@mail.acme.com.co>"
+    assert det["correo"]["message_id"] == "<c2@ufpso.edu.co>"
 
 
 def test_aprobar_ejecuta_lo_propuesto_y_cierra_el_caso():

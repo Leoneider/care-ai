@@ -114,7 +114,7 @@ def test_en_fase_2_el_cierre_responde_aunque_no_haya_accion_de_correo(monkeypatc
     svc = FakeGmail()
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
     monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
-    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-1@mail.acme.com.co>"))
+    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-1@ufpso.edu.co>"))
     caso = servicio.detalle(res["thread_id"])["caso"]
     solo_sistemas = [a for s in caso["solicitudes"] for a in s["acciones"] if a["sistema"] != "CORREO"]
 
@@ -124,7 +124,7 @@ def test_en_fase_2_el_cierre_responde_aunque_no_haya_accion_de_correo(monkeypatc
 
 def test_rechazar_nunca_escribe_al_cliente(monkeypatch):
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
-    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-2@mail.acme.com.co>"))
+    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-2@ufpso.edu.co>"))
     final = servicio.resolver(res["thread_id"], "rechazar", "no es del cliente")
     assert "borrador" not in final
 
@@ -132,7 +132,7 @@ def test_rechazar_nunca_escribe_al_cliente(monkeypatch):
 def test_apagado_por_defecto(monkeypatch):
     """Escribir en el buzon tiene que ser una decision explicita."""
     monkeypatch.delenv("CARE_BORRADOR_GMAIL", raising=False)
-    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-3@mail.acme.com.co>"))
+    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-3@ufpso.edu.co>"))
     final = servicio.resolver(res["thread_id"], "aprobar")
     assert final["borrador"]["estado"] == "desactivado"
 
@@ -145,7 +145,7 @@ def test_aprobar_deja_el_borrador_redactado(monkeypatch):
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
     monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
 
-    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-4@mail.acme.com.co>"))
+    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-4@ufpso.edu.co>"))
     final = servicio.resolver(res["thread_id"], "aprobar", "ok")
 
     assert final["borrador"]["estado"] == "creado"
@@ -162,7 +162,7 @@ def test_un_fallo_con_gmail_no_tumba_la_decision(monkeypatch, donde):
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
     monkeypatch.setattr(donde, lambda *a, **k: (_ for _ in ()).throw(RuntimeError("403 insufficient scope")))
 
-    res = servicio.procesar_correo(dict(CORREO, message_id=f"<rsp-5{donde[-4:]}@mail.acme.com.co>"))
+    res = servicio.procesar_correo(dict(CORREO, message_id=f"<rsp-5{donde[-4:]}@ufpso.edu.co>"))
     final = servicio.resolver(res["thread_id"], "aprobar", "ok")
 
     assert final["estado"] == "resuelto"                      # la decision vale
@@ -219,7 +219,7 @@ def test_el_borrador_creado_se_ve_en_el_caso_resuelto(monkeypatch):
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
     monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
 
-    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-ui@mail.acme.com.co>"))
+    res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-ui@ufpso.edu.co>"))
     thread = res["thread_id"]
     with TestClient(app) as c:
         caso = servicio.detalle(thread)["caso"]

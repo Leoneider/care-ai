@@ -26,7 +26,7 @@ Tres decisiones de esta capa:
 
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from email.utils import parseaddr
 from pathlib import Path
 from typing import Any
@@ -48,9 +48,14 @@ def _fecha(iso: str | None) -> str:
     if not iso:
         return "-"
     try:
-        return datetime.fromisoformat(iso.replace("Z", "+00:00")).strftime("%d/%m %H:%M")
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
     except ValueError:
         return iso[:16]
+    # Todo se guarda en UTC; se muestra en la hora local de la maquina (Colombia,
+    # UTC-5), que es la que lee el ejecutivo. Sin zona, se asume UTC.
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone().strftime("%d/%m %H:%M")
 
 
 def _cop(valor: Any) -> str:
@@ -270,3 +275,14 @@ async def cerrar(request: Request, thread_id: str, decision: str = Form(...), co
     servicio.cerrar(thread_id, decision, comentario)
     return RedirectResponse(f"/caso/{thread_id}", status_code=303)
 
+
+
+# --------------------------------------------------------------------------- #
+# Facilidad de la POC: la consola del legado vacia la bandeja al restaurar
+# --------------------------------------------------------------------------- #
+@app.post("/demo/vaciar")
+def vaciar_bandeja():
+    """Archiva todos los casos. Lo llama la consola de sistemas (por HTTP, no importa
+    este codigo) cuando se restaura con "tambien vaciar la bandeja". Sin
+    autenticacion, como el resto de la UI: todo escucha solo en 127.0.0.1."""
+    return {"casos_archivados": servicio.vaciar_bandeja()}

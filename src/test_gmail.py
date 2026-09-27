@@ -20,8 +20,8 @@ def _mensaje(payload: dict, **extra) -> dict:
 
 
 CABECERAS = [
-    {"name": "Message-ID", "value": "<CAF-99@mail.acme.com.co>"},
-    {"name": "From", "value": "laura.gomez@acme.com.co"},
+    {"name": "Message-ID", "value": "<CAF-99@ufpso.edu.co>"},
+    {"name": "From", "value": "ltrigosg@ufpso.edu.co"},
     {"name": "To", "value": "care.b2b@operador.com, copia@operador.com"},
     {"name": "Subject", "value": "Ampliacion sede Bogota"},
     {"name": "Date", "value": "Mon, 22 Sep 2026 09:15:00 -0500"},
@@ -48,7 +48,7 @@ def test_multipart_prefiere_texto_plano_y_lista_adjuntos():
     assert correo["cuerpo"] == "Necesitamos 500 Mbps."
     assert correo["adjuntos"] == ["factura.pdf"]
     assert correo["para"] == ["care.b2b@operador.com", "copia@operador.com"]
-    assert correo["message_id"] == "<CAF-99@mail.acme.com.co>"
+    assert correo["message_id"] == "<CAF-99@ufpso.edu.co>"
     assert correo["thread_id"] == "THR-GM-1"
     assert correo["recibido_en"].startswith("2026-09-22T09:15:00")
 
@@ -116,7 +116,7 @@ def test_respuesta_enviada_desde_el_buzon_no_es_correo_entrante():
 
 def test_remitente_igual_al_buzon_es_propio_aunque_falte_la_etiqueta():
     msg = _mensaje({"mimeType": "text/plain", "headers": CABECERAS}, labelIds=["INBOX"])
-    assert es_propio(msg, "Laura.Gomez@acme.com.co")
+    assert es_propio(msg, "LTrigosG@ufpso.edu.co")
     assert not es_propio(msg, "care.b2b@operador.com")
     assert not es_propio(msg)
 
@@ -137,5 +137,5 @@ def test_correo_de_gmail_atraviesa_el_grafo():
     res = servicio.procesar_correo(a_correo(msg))
 
     assert res["estado"] == "pendiente"
-    assert res["caso"]["cuenta"] == "B2B-004712"
+    assert res["caso"]["cuenta"] == "B2B-005130"
     assert len(res["caso"]["solicitudes"]) == 2

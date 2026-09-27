@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% from "_iconos.html" import icono %}
+{% block titulo %}Nuevo cliente de prueba - Sistema CORE{% endblock %}
+
+{% set f = previo.form if previo else {} %}
+{% set sanos = nodos | selectattr('estado', 'equalto', 'saludable') | list %}
+{% set nodo_def = (sanos[0].nodo if sanos else (nodos[0].nodo if nodos else '')) %}
+
+{% macro fila_contacto(v={}) -%}
+<div class="fila" data-fila>
+  <label class="campo"><span>Correo</span><input type="email" name="contacto_correo" value="{{ v.correo }}" placeholder="tu.correo@gmail.com"></label>
+  <label class="campo"><span>Nombre</span><input type="text" name="contacto_nombre" value="{{ v.nombre }}" placeholder="Opcional"></label>
+  <label class="campo"><span>Permiso</span>
+    <select name="contacto_autorizado">
+      <option value="1">Autorizado</option>
+      <option value="0" {{ 'selected' if v.autorizado == '0' }}>No autorizado</option>
+    </select></label>
+  <button type="button" class="quitar" data-quitar aria-label="Quitar fila" title="Quitar">{{ icono('cerrar', 14) }}</button>
+</div>
+{%- endmacro %}
+
+{% macro fila_servicio(v={}) -%}
+<div class="fila" data-fila>
+  <label class="campo"><span>Sede</span><input type="text" name="servicio_sede" value="{{ v.sede }}" placeholder="Bogota - Sede Norte"></label>
+  <label class="campo"><span>Producto</span><input type="text" name="servicio_producto" value="{{ v.producto or 'Internet Dedicado' }}"></label>
+  <label class="campo"><span>Mbps</span><input type="number" name="servicio_mbps" min="1" value="{{ v.mbps or 200 }}"></label>
+  <label class="campo"><span>Nodo</span>
+    <select name="servicio_nodo">
+      {% for n in nodos %}
+      <option value="{{ n.nodo }}" {{ 'selected' if n.nodo == (v.nodo or nodo_def) }}>{{ n.nodo }} &middot; {{ n.estado }} &middot; {{ n.capacidad_libre_mbps }} libres</option>
+      {% endfor %}
+    </select></label>
+  <button type="button" class="quitar" data-quitar aria-label="Quitar fila" title="Quitar">{{ icono('cerrar', 14) }}</button>
+</div>
+{%- endmacro %}
+
+{% macro fila_factura(v={}) -%}
+<div class="fila" data-fila>
+  <label class="campo"><span>Periodo</span><input type="month" name="factura_periodo" value="{{ v.periodo or '2026-09' }}"></label>
+  <label class="campo"><span>Valor (COP)</span><input type="number" name="factura_valor" min="1" step="1000" value="{{ v.valor }}" placeholder="5800000"></label>
+  <label class="campo"><span>Estado</span>
+    <select name="factura_estado">
+      {% for e in estados_factura %}<option {{ 'selected' if e == (v.estado or 'pendiente') }}>{{ e }}</option>{% endfor %}
+    </select></label>
+  <button type="button" class="quitar" data-quitar aria-label="Quitar fila" title="Quitar">{{ icono('cerrar', 14) }}</button>
+</div>
+{%- endmacro %}
+
+{% block estilos %}
+<style>
+.contenido{padding-bottom:0}
+.encabezado{display:flex; align-items:center; gap:12px; margin-bottom:6px}
+.encabezado .avatar{width:40px; height:40px; border-radius:10px; background:var(--acento-suave); color:var(--acento)}
+.escenarios{display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 16px}
+.escenario{display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; font-weight:600;
+  padding:8px 12px; max-width:230px}
+.escenario small{font-weight:400; color:var(--tenue); font-size:12px; line-height:1.35}
+.escenario:hover{border-color:var(--acento)}
+.seccion-form{border:1px solid var(--borde); border-radius:8px; background:var(--panel); margin:0 0 12px; padding:0}
+.seccion-form > header{display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--borde); background:var(--fondo-2); border-radius:8px 8px 0 0}
+.seccion-form > header h2{margin-right:auto; display:flex; align-items:center; gap:8px}
+.seccion-form > header .paso{display:grid; place-items:center; width:20px; height:20px; border-radius:50%;
+  background:var(--acento); color:var(--acento-texto); font-size:11px; font-weight:700}
+.seccion-form .interior{padding:12px 14px; display:grid; gap:10px}
+.seccion-form .ayuda{font-size:12.5px; color:var(--tenue); margin:0}
+.datos-cuenta{display:grid; gap:10px; grid-template-columns:2fr 1fr 1fr 1.6fr}
+.filas{display:grid; gap:8px}
+.fila{display:grid; gap:10px; align-items:end}
+#contactos .fila{grid-template-columns:2fr 1.5fr 1fr 32px}
+#servicios .fila{grid-template-columns:2fr 1.4fr .8fr 1.8fr 32px}
+#facturas .fila{grid-template-columns:1fr 1fr 1fr 32px}
+.datos-contrato{display:grid; gap:10px; grid-template-columns:repeat(4,1fr)}
+button.quitar{padding:0; width:32px; height:31px; justify-content:center; color:var(--tenue); font-weight:400}
+button.quitar:hover{color:var(--falla); border-color:var(--falla)}
+button.agregar{justify-self:start; font-weight:500; color:var(--acento); border-style:dashed}
+.pie-form{position:sticky; bottom:0; display:flex; gap:8px; align-items:center; padding:12px 0 14px;
+  background:linear-gradient(to bottom, transparent, var(--fondo) 30%); margin-top:4px}
+.pie-form .espacio{flex:1}
+.contrato-apagado .datos-contrato{opacity:.45; pointer-events:none}
+@media (max-width:900px){
+  .datos-cuenta, .datos-contrato{grid-template-columns:1fr 1fr}
+  #contactos .fila, #servicios .fila, #facturas .fila{grid-template-columns:1fr 1fr; padding-bottom:10px; border-bottom:1px dashed var(--borde)}
+  button.quitar{width:auto; padding:0 10px}
+}
+@media (max-width:520px){
+  .datos-cuenta, .datos-contrato, #contactos .fila, #servicios .fila, #facturas .fila{grid-template-columns:1fr}
+}
+</style>
+{% endblock %}
+
+{% block contenido %}
+<div class="encabezado">
+  <span class="avatar">{{ icono('mas', 20) }}</span>
+  <div>
+    <h1>Nuevo cliente de prueba</h1>
+    <p class="sub" style="margin:0">Da de alta una cuenta con tus propios correos para ensayar casos distintos a los que ya existen.
+      Al restaurar los sistemas vuelve a su estado inicial; no se pierde.</p>
+  </div>
+</div>
+
+{% if error %}
+  <div class="aviso error" role="alert" style="margin-top:12px">{{ icono('alerta') }}<span><b>No se creo el cliente.</b> {{ error }}</span></div>
+{% endif %}
+
+<div class="escenarios" aria-label="Escenarios de prueba">
+  <button type="button" class="escenario" data-escenario="cabe">Upgrade que cabe
+    <small>Nodo sano con capacidad y factura por encima de lo pactado: el copiloto puede ejecutar todo.</small></button>
+  <button type="button" class="escenario" data-escenario="saturado">Nodo saturado
+    <small>El servicio cuelga de un nodo sin capacidad: el upgrade se tiene que rechazar.</small></button>
+  <button type="button" class="escenario" data-escenario="cuadra">Factura que cuadra
+    <small>Lo facturado es igual a lo pactado: no hay nota credito que emitir.</small></button>
+  <button type="button" class="escenario" data-escenario="sin_contrato">Sin contrato
+    <small>No hay contra que comparar la factura ni permiso de upgrade.</small></button>
+</div>
+
+<form method="post" action="/clientes" id="form-nuevo" autocomplete="off">
+  <section class="seccion-form">
+    <header><h2><span class="paso">1</span> Cuenta</h2></header>
+    <div class="interior">
+      <div class="datos-cuenta">
+        <label class="campo"><span>Razon social *</span>
+          <input type="text" name="razon_social" required value="{{ f.razon_social }}" placeholder="Transportes del Norte S.A.S."></label>
+        <label class="campo"><span>Segmento</span>
+          <select name="segmento">{% for s in segmentos %}<option {{ 'selected' if s == f.segmento }}>{{ s }}</option>{% endfor %}</select></label>
+        <label class="campo"><span>Estado</span>
+          <select name="estado">
+            {% for e in ['activo', 'suspendido'] %}<option {{ 'selected' if e == f.estado }}>{{ e }}</option>{% endfor %}
+          </select></label>
+        <label class="campo"><span>Dominio corporativo</span>
+          <input type="text" name="dominio" value="{{ f.dominio }}" placeholder="empresa.com.co (opcional)"></label>
+      </div>
+      <p class="ayuda">Deja el dominio vacio si vas a probar con correos de Gmail u Outlook: el cliente se reconocera solo
+        por el correo exacto de sus contactos. Con dominio, cualquier otro remitente de ese dominio cae en la cuenta como no autorizado.</p>
+    </div>
+  </section>
+
+  <section class="seccion-form" id="contactos">
+    <header><h2><span class="paso">2</span> Contactos *</h2><span class="tenue" style="font-size:12.5px">por donde el copiloto reconoce al cliente</span></header>
+    <div class="interior">
+      <div class="filas">
+        {% for v in (previo.contactos if previo and previo.contactos else [{}]) %}{{ fila_contacto(v) }}{% endfor %}
+      </div>
+      <button type="button" class="agregar" data-agregar="contacto">{{ icono('mas', 14) }} Otro contacto</button>
+    </div>
+  </section>
+
+  <section class="seccion-form" id="servicios">
+    <header><h2><span class="paso">3</span> Servicios</h2><span class="tenue" style="font-size:12.5px">lo que el copiloto puede ampliar</span></header>
+    <div class="interior">
+      <div class="filas">
+        {% for v in (previo.servicios if previo and previo.servicios else [{}]) %}{{ fila_servicio(v) }}{% endfor %}
+      </div>
+      <button type="button" class="agregar" data-agregar="servicio">{{ icono('mas', 14) }} Otro servicio</button>
+      <p class="ayuda">Las filas sin sede se ignoran.</p>
+    </div>
+  </section>
+
+  {% set con_contrato = (f.con_contrato if previo else '1') %}
+  <section class="seccion-form {{ '' if con_contrato else 'contrato-apagado' }}" id="contrato">
+    <header><h2><span class="paso">4</span> Contrato</h2>
+      <label class="casilla"><input type="checkbox" name="con_contrato" value="1" id="con-contrato" {{ 'checked' if con_contrato }}> Registrar contrato</label></header>
+    <div class="interior">
+      <div class="datos-contrato">
+        <label class="campo"><span>Vigente hasta</span><input type="date" name="contrato_vigencia" value="{{ f.contrato_vigencia or '2027-12-31' }}"></label>
+        <label class="campo"><span>Valor mensual (COP)</span><input type="number" name="contrato_valor" min="1" step="1000" value="{{ f.contrato_valor or 5000000 }}"></label>
+        <label class="campo"><span>Upgrade sin adendum</span>
+          <select name="contrato_upgrade"><option value="1">Si</option><option value="0" {{ 'selected' if f.contrato_upgrade == '0' }}>No</option></select></label>
+        <label class="campo"><span>Permanencia (meses)</span><input type="number" name="contrato_permanencia" min="0" value="{{ f.contrato_permanencia or 12 }}"></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="seccion-form" id="facturas">
+    <header><h2><span class="paso">5</span> Facturas</h2><span class="tenue" style="font-size:12.5px">lo que el cliente puede reclamar</span></header>
+    <div class="interior">
+      <div class="filas">
+        {% for v in (previo.facturas if previo and previo.facturas else [{}]) %}{{ fila_factura(v) }}{% endfor %}
+      </div>
+      <button type="button" class="agregar" data-agregar="factura">{{ icono('mas', 14) }} Otra factura</button>
+      <p class="ayuda">Las filas sin valor se ignoran.</p>
+    </div>
+  </section>
+
+  <div class="pie-form">
+    <span class="tenue" style="font-size:12.5px">* obligatorio</span>
+    <span class="espacio"></span>
+    <a class="boton" href="/">Cancelar</a>
+    <button type="submit" class="primario">{{ icono('ok', 15) }} Crear cliente</button>
+  </div>
+</form>
+
+<template id="t-contacto">{{ fila_contacto() }}</template>
+<template id="t-servicio">{{ fila_servicio() }}</template>
+<template id="t-factura">{{ fila_factura() }}</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById("form-nuevo");
+
+  function filas(tipo) { return document.querySelector("#" + tipo + "s .filas"); }
+  function agregar(tipo) {
+    var nodo = document.getElementById("t-" + tipo).content.firstElementChild.cloneNode(true);
+    filas(tipo).appendChild(nodo);
+    return nodo;
+  }
+
+  form.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-agregar]");
+    if (b) { agregar(b.dataset.agregar).querySelector("input").focus(); return; }
+    var q = e.target.closest("[data-quitar]");
+    if (q) {
+      var fila = q.closest("[data-fila]"), cont = fila.parentElement;
+      // Siempre queda una fila: se vacia en vez de quitarla.
+      if (cont.children.length > 1) fila.remove();
+      else fila.querySelectorAll("input").forEach(function (i) { if (i.type !== "month") i.value = ""; });
+    }
+  });
+
+  var chk = document.getElementById("con-contrato");
+  chk.addEventListener("change", function () {
+    document.getElementById("contrato").classList.toggle("contrato-apagado", !chk.checked);
+  });
+
+  // Escenarios de prueba: rellenan todo menos los correos, que son los tuyos.
+  var ESC = {
+    cabe: {razon: "Cliente prueba - upgrade que cabe", segmento: "Corporativo", contrato: true, valor: 5000000, upgrade: "1",
+           servicios: [["Bogota - Sede Norte", 200, "BOG-N21"], ["Ocana - Planta", 100, "OCA-N02"]],
+           facturas: [["2026-08", 5000000, "pagada"], ["2026-09", 5800000, "pendiente"]]},
+    saturado: {razon: "Cliente prueba - nodo saturado", segmento: "Empresarial", contrato: true, valor: 4200000, upgrade: "1",
+           servicios: [["Cucuta - Oficina Principal", 100, "CUC-N07"]],
+           facturas: [["2026-08", 4200000, "pagada"], ["2026-09", 4900000, "pendiente"]]},
+    cuadra: {razon: "Cliente prueba - factura que cuadra", segmento: "Pyme", contrato: true, valor: 3100000, upgrade: "1",
+           servicios: [["Bogota - Local Chico", 50, "BOG-N14"]],
+           facturas: [["2026-08", 3100000, "pagada"], ["2026-09", 3100000, "pendiente"]]},
+    sin_contrato: {razon: "Cliente prueba - sin contrato", segmento: "Gobierno", contrato: false,
+           servicios: [["Bogota - Sede Centro", 100, "BOG-N21"]],
+           facturas: [["2026-09", 2750000, "pendiente"]]}
+  };
+  function poner(fila, nombre, valor) {
+    var el = fila.querySelector('[name="' + nombre + '"]');
+    if (!el) return;
+    if (el.tagName === "SELECT" && ![].some.call(el.options, function (o) { return (o.value || o.text) === String(valor); })) return;
+    el.value = valor;
+  }
+  document.querySelectorAll("[data-escenario]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var e = ESC[b.dataset.escenario];
+      form.razon_social.value = e.razon;
+      form.segmento.value = e.segmento;
+      chk.checked = e.contrato; chk.dispatchEvent(new Event("change"));
+      if (e.contrato) { form.contrato_valor.value = e.valor; form.contrato_upgrade.value = e.upgrade; }
+      ["servicio", "factura"].forEach(function (tipo) { filas(tipo).innerHTML = ""; });
+      e.servicios.forEach(function (s) {
+        var f = agregar("servicio");
+        poner(f, "servicio_sede", s[0]); poner(f, "servicio_mbps", s[1]); poner(f, "servicio_nodo", s[2]);
+      });
+      e.facturas.forEach(function (x) {
+        var f = agregar("factura");
+        poner(f, "factura_periodo", x[0]); poner(f, "factura_valor", x[1]); poner(f, "factura_estado", x[2]);
+      });
+      var correo = form.querySelector('[name="contacto_correo"]');
+      if (!correo.value) correo.focus();
+    });
+  });
+})();
+</script>
+{% endblock %}

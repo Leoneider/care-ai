@@ -308,7 +308,7 @@ def diagnostico() -> int:
     print("\nCRM simulado")
     if demo:
         print(f"  CARE_CORREO_DEMO = {demo}")
-        print("  Los correos de esa direccion se reconocen como contacto de ACME.")
+        print("  Los correos de esa direccion se reconocen como contacto de UFPSO.")
     else:
         print("  CARE_CORREO_DEMO vacio: todo correo saldra como NO IDENTIFICADA")
         print(f"  Ponla en .env con {perfil.get('emailAddress')} para ejercitar las validaciones.")

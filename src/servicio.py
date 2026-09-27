@@ -48,9 +48,15 @@ def reiniciar_demo() -> dict[str, int]:
     """
     from . import sistemas
 
-    archivados = db.archivar_todo()
+    archivados = vaciar_bandeja()
     sistemas.restaurar()
     return {"casos_archivados": archivados}
+
+
+def vaciar_bandeja() -> int:
+    """Solo la mitad de Care AI de `reiniciar_demo`: archiva los casos, no toca los
+    sistemas. La usa la consola del legado (por HTTP) al restaurar."""
+    return db.archivar_todo()
 
 
 def thread_de(message_id: str) -> str:

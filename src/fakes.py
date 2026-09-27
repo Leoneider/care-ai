@@ -63,12 +63,12 @@ class FakeStructuredLLM:
             # offline tambien ejercita la normalizacion de `validaciones.py`.
             if "tipo de solicitud: facturacion" in texto:
                 return DatosExtraidos(campos={"periodo": "septiembre"}, faltantes=[])
-            # Medellin corre sobre MED-N03, que en el mini sistema esta saturado:
+            # Cucuta corre sobre CUC-N07, que en el mini sistema esta saturado:
             # es la unica forma de ejercitar una validacion bloqueante en modo
             # offline, y por tanto la friccion que la UI impone al aprobarla.
-            if "medellin" in texto:
+            if "cucuta" in texto:
                 return DatosExtraidos(
-                    campos={"sede": "Medellin", "ancho_banda_objetivo_mbps": "500"},
+                    campos={"sede": "Cucuta", "ancho_banda_objetivo_mbps": "500"},
                     faltantes=["fecha_deseada_activacion"],
                 )
             return DatosExtraidos(
@@ -112,7 +112,7 @@ class FakeStructuredLLM:
                             codigo="ESCALAR_A_INGENIERIA",
                             descripcion="Escalar a ingenieria: el nodo no tiene capacidad para el aumento.",
                             sistema="RED",
-                            parametros={"sede": "Medellin", "objetivo_mbps": "500"},
+                            parametros={"sede": "Cucuta", "objetivo_mbps": "500"},
                         ),
                         AccionPropuesta(
                             codigo="SOLICITAR_DATO_FALTANTE",

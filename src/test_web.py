@@ -22,7 +22,7 @@ def cliente():
 
 
 def _caso_nuevo(sufijo: str) -> str:
-    res = servicio.procesar_correo(dict(CORREO, message_id=f"<w-{sufijo}@mail.acme.com.co>"))
+    res = servicio.procesar_correo(dict(CORREO, message_id=f"<w-{sufijo}@ufpso.edu.co>"))
     assert res["estado"] == "pendiente"
     return res["thread_id"]
 
@@ -48,7 +48,7 @@ def test_bandeja_vacia(cliente):
 def test_bandeja_lista_el_caso_pendiente(cliente):
     _caso_nuevo("a")
     html = cliente.get("/").text
-    assert "ACME Logistica S.A.S." in html
+    assert "UFPSO (cuenta de pruebas)" in html
     assert "Ampliacion sede Bogota" in html
 
 
@@ -143,18 +143,18 @@ def test_pestana_de_resueltos_separa_los_cerrados(cliente):
 # Friccion ante validaciones bloqueantes
 # --------------------------------------------------------------------------- #
 def _caso_bloqueado(sufijo: str) -> str:
-    """Un caso sobre la sede de Medellin, cuyo nodo esta saturado en el mini sistema."""
+    """Un caso sobre la sede de Cucuta, cuyo nodo esta saturado en el mini sistema."""
     correo = dict(
         CORREO,
-        message_id=f"<blq-{sufijo}@mail.acme.com.co>",
-        cuerpo="Necesitamos ampliar el ancho de banda de la sede de Medellin a 500 Mbps.",
+        message_id=f"<blq-{sufijo}@ufpso.edu.co>",
+        cuerpo="Necesitamos ampliar el ancho de banda de la sede de Cucuta a 500 Mbps.",
     )
     res = servicio.procesar_correo(correo)
     assert res["estado"] == "pendiente"
     return res["thread_id"]
 
 
-def test_el_caso_de_medellin_trae_una_validacion_bloqueante():
+def test_el_caso_de_cucuta_trae_una_validacion_bloqueante():
     """Sin esto las demas pruebas de friccion pasarian por vacuidad."""
     caso = servicio.detalle(_caso_bloqueado("a"))["caso"]
     assert [v["check"] for v in bloqueantes_de(caso)] == ["capacidad_nodo"]

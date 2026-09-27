@@ -121,29 +121,32 @@ CREATE TABLE IF NOT EXISTS operacion (
     despues    TEXT NOT NULL DEFAULT '{}',
     detalle    TEXT NOT NULL DEFAULT ''
 );
+-- Lo que se dio de alta a mano desde la consola (clientes de prueba, contactos,
+-- servicios, facturas). Vive aparte de la semilla para que `restaurar()` lo
+-- vuelva a sembrar en su estado inicial en vez de perderlo.
+CREATE TABLE IF NOT EXISTS alta (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    tabla      TEXT NOT NULL,
+    cuenta_id  TEXT NOT NULL,
+    referencia TEXT NOT NULL,
+    fila       TEXT NOT NULL
+);
 """
 
 # --------------------------------------------------------------------------- #
 # Datos sembrados
 # --------------------------------------------------------------------------- #
-# ACME conserva los valores de siempre: las pruebas y el demo offline dependen de
-# ellos. UFPSO es la cuenta del buzon real, preparada para el correo de la demo
+# Una sola cuenta, UFPSO: la del buzon real, preparada para el correo de la demo
 # (ampliar Bogota a 500 Mbps + reclamo por la factura de septiembre): la sede
 # existe, el nodo tiene capacidad, el contrato permite el upgrade y la factura de
 # septiembre esta por encima de lo pactado. Todo el camino se puede ejecutar.
+# Cucuta corre sobre un nodo saturado: es el caso de la validacion bloqueante.
 SEMILLA: dict[str, list[dict[str, Any]]] = {
     "cuenta": [
-        {"cuenta_id": "B2B-004712", "dominio": "acme.com.co", "razon_social": "ACME Logistica S.A.S.",
-         "segmento": "Corporativo", "estado": "activo"},
         {"cuenta_id": "B2B-005130", "dominio": "ufpso.edu.co", "razon_social": "UFPSO (cuenta de pruebas)",
          "segmento": "Educacion", "estado": "activo"},
     ],
     "contacto": [
-        {"correo": "laura.gomez@acme.com.co", "cuenta_id": "B2B-004712", "nombre": "Laura Gomez", "autorizado": 1},
-        {"correo": "compras@acme.com.co", "cuenta_id": "B2B-004712", "nombre": "Compras ACME", "autorizado": 1},
-        # Las dos formas de la direccion: la que se pidio y la que de verdad
-        # llego en el primer correo real.
-        {"correo": "ltrigos@ufpso.edu.co", "cuenta_id": "B2B-005130", "nombre": "Leoneider Trigos", "autorizado": 1},
         {"correo": "ltrigosg@ufpso.edu.co", "cuenta_id": "B2B-005130", "nombre": "Leoneider Trigos", "autorizado": 1},
     ],
     "nodo": [
@@ -154,10 +157,6 @@ SEMILLA: dict[str, list[dict[str, Any]]] = {
         {"nodo": "OCA-N02", "capacidad_libre_mbps": 400, "estado": "saludable"},
     ],
     "servicio": [
-        {"servicio_id": "SVC-8891", "cuenta_id": "B2B-004712", "producto": "Internet Dedicado",
-         "sede": "Bogota - Calle 100", "ancho_banda_mbps": 200, "nodo": "BOG-N14"},
-        {"servicio_id": "SVC-8892", "cuenta_id": "B2B-004712", "producto": "Internet Dedicado",
-         "sede": "Medellin - Poblado", "ancho_banda_mbps": 100, "nodo": "MED-N03"},
         {"servicio_id": "SVC-9310", "cuenta_id": "B2B-005130", "producto": "Internet Dedicado",
          "sede": "Bogota - Sede Chapinero", "ancho_banda_mbps": 200, "nodo": "BOG-N21"},
         {"servicio_id": "SVC-9311", "cuenta_id": "B2B-005130", "producto": "Internet Dedicado",
@@ -166,22 +165,14 @@ SEMILLA: dict[str, list[dict[str, Any]]] = {
          "sede": "Ocana - Campus Algodonal", "ancho_banda_mbps": 300, "nodo": "OCA-N02"},
     ],
     "contrato": [
-        {"contrato": "CTO-2231", "cuenta_id": "B2B-004712", "vigencia_hasta": "2027-03-31",
-         "valor_mensual_pactado": 8_450_000, "permite_upgrade_sin_adendum": 1, "clausula_permanencia_meses": 12},
         {"contrato": "CTO-3107", "cuenta_id": "B2B-005130", "vigencia_hasta": "2027-06-30",
          "valor_mensual_pactado": 6_200_000, "permite_upgrade_sin_adendum": 1, "clausula_permanencia_meses": 24},
     ],
     "factura": [
-        {"factura": "FE-90231", "cuenta_id": "B2B-004712", "periodo": "2026-08", "valor": 8_450_000, "estado": "pagada"},
-        {"factura": "FE-91044", "cuenta_id": "B2B-004712", "periodo": "2026-09", "valor": 9_720_000, "estado": "pendiente"},
         {"factura": "FE-90877", "cuenta_id": "B2B-005130", "periodo": "2026-08", "valor": 6_200_000, "estado": "pagada"},
         {"factura": "FE-91502", "cuenta_id": "B2B-005130", "periodo": "2026-09", "valor": 7_150_000, "estado": "pendiente"},
     ],
-    "ticket": [
-        {"ticket": "INC-55120", "cuenta_id": "B2B-004712", "tema": "facturacion", "grupo": "Facturacion",
-         "asunto": "Revision de cobros del periodo 2026-08", "estado": "abierto", "caso_id": "",
-         "creado_en": "2026-09-02T14:10:00+00:00", "actualizado_en": "2026-09-02T14:10:00+00:00"},
-    ],
+    "ticket": [],
 }
 
 _ORDEN_TABLAS = ("cuenta", "contacto", "nodo", "servicio", "contrato", "factura", "ticket")
@@ -199,12 +190,16 @@ def _ahora() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _insertar(con: sqlite3.Connection, tabla: str, fila: dict[str, Any]) -> None:
+    cols = ", ".join(fila)
+    marcas = ", ".join("?" for _ in fila)
+    con.execute(f"INSERT INTO {tabla} ({cols}) VALUES ({marcas})", tuple(fila.values()))
+
+
 def _sembrar(con: sqlite3.Connection) -> None:
     for tabla in _ORDEN_TABLAS:
         for fila in SEMILLA.get(tabla, []):
-            cols = ", ".join(fila)
-            marcas = ", ".join("?" for _ in fila)
-            con.execute(f"INSERT INTO {tabla} ({cols}) VALUES ({marcas})", tuple(fila.values()))
+            _insertar(con, tabla, fila)
 
 
 @contextmanager
@@ -226,13 +221,24 @@ def conexion() -> Iterator[sqlite3.Connection]:
         con.close()
 
 
-def restaurar() -> None:
-    """Vuelve a los datos sembrados. Borra la bitacora tambien: la demo empieza limpia."""
+def restaurar(conservar_altas: bool = True) -> None:
+    """Vuelve a los datos sembrados. Borra la bitacora tambien: la demo empieza limpia.
+
+    Con `conservar_altas` (lo normal) los clientes creados desde la consola vuelven
+    a su estado inicial en vez de desaparecer; sin el, queda solo la semilla.
+    """
     with conexion() as con:
         for tabla in _ORDEN_BORRADO:
             con.execute(f"DELETE FROM {tabla}")
-        con.execute("DELETE FROM sqlite_sequence")
+        if not conservar_altas:
+            con.execute("DELETE FROM alta")
+        con.execute("DELETE FROM sqlite_sequence WHERE name != 'alta'")
         _sembrar(con)
+        altas = [dict(r) for r in con.execute("SELECT tabla, fila FROM alta ORDER BY id")]
+        for tabla in _ORDEN_TABLAS:
+            for a in altas:
+                if a["tabla"] == tabla:
+                    _insertar(con, tabla, json.loads(a["fila"]))
 
 
 def _registrar(con: sqlite3.Connection, sistema: str, operacion: str, *, cuenta_id: str = "",
@@ -450,11 +456,286 @@ def actualizar_ticket(numero: str, *, estado: str | None = None, nota: str = "",
 
 
 # --------------------------------------------------------------------------- #
+# Altas desde la consola: clientes de prueba
+# --------------------------------------------------------------------------- #
+# Con dos cuentas sembradas solo se puede probar con dos buzones. Estas funciones
+# dejan dar de alta clientes con sus propios correos, servicios y facturas, para
+# ensayar otros casos (nodo saturado, factura que cuadra, contacto no autorizado)
+# sin tocar la semilla. No pasan por la bitacora: no son operaciones del copiloto,
+# son datos de partida, y marcarlas como "modificadas" confundiria la demo.
+
+ESTADOS_FACTURA = ("pendiente", "pagada", "vencida")
+SEGMENTOS = ("Corporativo", "Empresarial", "Pyme", "Gobierno", "Educacion")
+ESTADOS_CUENTA = ("activo", "suspendido")
+
+# TLD reservado (RFC 2606): nunca coincide con un remitente real, asi que una
+# cuenta sin dominio corporativo solo se encuentra por el correo exacto.
+_SIN_DOMINIO = ".invalid"
+
+
+def _siguiente(con: sqlite3.Connection, tabla: str, col: str, prefijo: str, ancho: int, minimo: int) -> str:
+    """Siguiente identificador libre con el formato de la casa: B2B-005131, SVC-9313..."""
+    mayor = minimo - 1
+    for (valor,) in con.execute(f"SELECT {col} FROM {tabla} WHERE {col} LIKE ?", (f"{prefijo}%",)):
+        cola = valor[len(prefijo):]
+        if cola.isdigit():
+            mayor = max(mayor, int(cola))
+    return f"{prefijo}{mayor + 1:0{ancho}d}"
+
+
+def _alta(con: sqlite3.Connection, tabla: str, cuenta_id: str, referencia: str, fila: dict[str, Any]) -> None:
+    _insertar(con, tabla, fila)
+    con.execute("INSERT INTO alta (tabla, cuenta_id, referencia, fila) VALUES (?,?,?,?)",
+                (tabla, cuenta_id, referencia, json.dumps(fila, ensure_ascii=False)))
+
+
+def _entero(valor: Any, que: str, minimo: int = 0) -> int:
+    try:
+        n = int(str(valor).replace(".", "").replace(",", "").strip())
+    except (TypeError, ValueError):
+        raise ErrorSistema(f"{que}: '{valor}' no es un numero.") from None
+    if n < minimo:
+        raise ErrorSistema(f"{que} tiene que ser al menos {minimo}.")
+    return n
+
+
+def _correo_valido(correo: str) -> str:
+    correo = (correo or "").strip().lower()
+    if correo.count("@") != 1 or not correo.split("@")[0] or "." not in correo.split("@")[1]:
+        raise ErrorSistema(f"'{correo}' no es un correo valido.")
+    return correo
+
+
+def _alta_contacto(con: sqlite3.Connection, cuenta_id: str, correo: str, nombre: str, autorizado: bool) -> str:
+    correo = _correo_valido(correo)
+    duenio = _uno(con, "SELECT cuenta_id FROM contacto WHERE correo = ?", correo)
+    if duenio:
+        raise ErrorSistema(f"El correo {correo} ya es contacto de la cuenta {duenio['cuenta_id']}.")
+    _alta(con, "contacto", cuenta_id, correo, {"correo": correo, "cuenta_id": cuenta_id,
+                                               "nombre": (nombre or "").strip(), "autorizado": int(bool(autorizado))})
+    return correo
+
+
+def _alta_servicio(con: sqlite3.Connection, cuenta_id: str, producto: str, sede: str, mbps: Any, nodo: str) -> str:
+    if not (sede or "").strip():
+        raise ErrorSistema("Cada servicio necesita una sede.")
+    if not _uno(con, "SELECT nodo FROM nodo WHERE nodo = ?", nodo):
+        raise ErrorSistema(f"El nodo '{nodo}' no existe en el inventario de red.")
+    sid = _siguiente(con, "servicio", "servicio_id", "SVC-", 4, 9400)
+    _alta(con, "servicio", cuenta_id, sid, {
+        "servicio_id": sid, "cuenta_id": cuenta_id, "producto": (producto or "Internet Dedicado").strip(),
+        "sede": sede.strip(), "ancho_banda_mbps": _entero(mbps, "El ancho de banda", 1), "nodo": nodo})
+    return sid
+
+
+def _alta_factura(con: sqlite3.Connection, cuenta_id: str, periodo: str, valor: Any, estado: str) -> str:
+    periodo = (periodo or "").strip()
+    if len(periodo) != 7 or periodo[4] != "-" or not (periodo[:4] + periodo[5:]).isdigit() \
+            or not 1 <= int(periodo[5:]) <= 12:
+        raise ErrorSistema(f"El periodo '{periodo}' tiene que ir como AAAA-MM.")
+    if estado not in ESTADOS_FACTURA:
+        raise ErrorSistema(f"Estado de factura desconocido: '{estado}'.")
+    numero = _siguiente(con, "factura", "factura", "FE-", 5, 92001)
+    _alta(con, "factura", cuenta_id, numero, {"factura": numero, "cuenta_id": cuenta_id, "periodo": periodo,
+                                              "valor": _entero(valor, "El valor de la factura", 1), "estado": estado})
+    return numero
+
+
+def _alta_contrato(con: sqlite3.Connection, cuenta_id: str, vigencia_hasta: str, valor_mensual: Any,
+                   permite_upgrade: bool, permanencia_meses: Any) -> str:
+    if _uno(con, "SELECT contrato FROM contrato WHERE cuenta_id = ?", cuenta_id):
+        raise ErrorSistema(f"La cuenta {cuenta_id} ya tiene contrato.")
+    try:
+        datetime.strptime((vigencia_hasta or "").strip(), "%Y-%m-%d")
+    except ValueError:
+        raise ErrorSistema(f"La vigencia '{vigencia_hasta}' tiene que ir como AAAA-MM-DD.") from None
+    numero = _siguiente(con, "contrato", "contrato", "CTO-", 4, 4001)
+    _alta(con, "contrato", cuenta_id, numero, {
+        "contrato": numero, "cuenta_id": cuenta_id, "vigencia_hasta": vigencia_hasta.strip(),
+        "valor_mensual_pactado": _entero(valor_mensual, "El valor mensual", 1),
+        "permite_upgrade_sin_adendum": int(bool(permite_upgrade)),
+        "clausula_permanencia_meses": _entero(permanencia_meses or 0, "La permanencia")})
+    return numero
+
+
+def _exigir_cuenta(con: sqlite3.Connection, cuenta_id: str) -> None:
+    if not _uno(con, "SELECT cuenta_id FROM cuenta WHERE cuenta_id = ?", cuenta_id):
+        raise ErrorSistema(f"La cuenta {cuenta_id} no existe.")
+
+
+def crear_cuenta(razon_social: str, *, segmento: str = "Corporativo", dominio: str = "",
+                 estado: str = "activo", contactos: list[dict[str, Any]] | None = None,
+                 servicios: list[dict[str, Any]] | None = None, contrato: dict[str, Any] | None = None,
+                 facturas: list[dict[str, Any]] | None = None) -> str:
+    """Da de alta un cliente completo en una sola transaccion: o entra todo o nada.
+
+    `contactos`: [{correo, nombre, autorizado}]  (al menos uno: es por donde el
+    copiloto reconoce al cliente). `servicios`: [{producto, sede, ancho_banda_mbps, nodo}].
+    `contrato`: {vigencia_hasta, valor_mensual_pactado, permite_upgrade_sin_adendum,
+    clausula_permanencia_meses}. `facturas`: [{periodo, valor, estado}].
+    """
+    razon_social = (razon_social or "").strip()
+    if not razon_social:
+        raise ErrorSistema("La razon social es obligatoria.")
+    if not contactos:
+        raise ErrorSistema("Agrega al menos un contacto: el copiloto reconoce al cliente por el correo.")
+    with conexion() as con:
+        cuenta_id = _siguiente(con, "cuenta", "cuenta_id", "B2B-", 6, 6001)
+        dominio = (dominio or "").strip().lower().lstrip("@") or f"{cuenta_id.lower()}{_SIN_DOMINIO}"
+        otra = _uno(con, "SELECT cuenta_id FROM cuenta WHERE dominio = ?", dominio)
+        if otra:
+            raise ErrorSistema(f"El dominio {dominio} ya es de la cuenta {otra['cuenta_id']}. "
+                               "Dejalo vacio para identificar al cliente solo por sus correos.")
+        _alta(con, "cuenta", cuenta_id, cuenta_id, {"cuenta_id": cuenta_id, "dominio": dominio,
+                                                    "razon_social": razon_social, "segmento": segmento or "Corporativo",
+                                                    "estado": estado or "activo"})
+        for c in contactos:
+            _alta_contacto(con, cuenta_id, c.get("correo", ""), c.get("nombre", ""), c.get("autorizado", True))
+        for s in servicios or []:
+            _alta_servicio(con, cuenta_id, s.get("producto", ""), s.get("sede", ""),
+                           s.get("ancho_banda_mbps"), s.get("nodo", ""))
+        if contrato:
+            _alta_contrato(con, cuenta_id, contrato.get("vigencia_hasta", ""), contrato.get("valor_mensual_pactado"),
+                           contrato.get("permite_upgrade_sin_adendum", True), contrato.get("clausula_permanencia_meses"))
+        for f in facturas or []:
+            _alta_factura(con, cuenta_id, f.get("periodo", ""), f.get("valor"), f.get("estado", "pendiente"))
+        return cuenta_id
+
+
+def agregar_contacto(cuenta_id: str, correo: str, nombre: str = "", autorizado: bool = True) -> str:
+    """Sirve tambien para las cuentas sembradas: p. ej. poner tu propio correo en UFPSO."""
+    with conexion() as con:
+        _exigir_cuenta(con, cuenta_id)
+        return _alta_contacto(con, cuenta_id, correo, nombre, autorizado)
+
+
+def agregar_servicio(cuenta_id: str, sede: str, ancho_banda_mbps: Any, nodo: str,
+                     producto: str = "Internet Dedicado") -> str:
+    with conexion() as con:
+        _exigir_cuenta(con, cuenta_id)
+        return _alta_servicio(con, cuenta_id, producto, sede, ancho_banda_mbps, nodo)
+
+
+def agregar_factura(cuenta_id: str, periodo: str, valor: Any, estado: str = "pendiente") -> str:
+    with conexion() as con:
+        _exigir_cuenta(con, cuenta_id)
+        return _alta_factura(con, cuenta_id, periodo, valor, estado)
+
+
+def agregar_contrato(cuenta_id: str, vigencia_hasta: str, valor_mensual_pactado: Any,
+                     permite_upgrade_sin_adendum: bool = True, clausula_permanencia_meses: Any = 12) -> str:
+    with conexion() as con:
+        _exigir_cuenta(con, cuenta_id)
+        return _alta_contrato(con, cuenta_id, vigencia_hasta, valor_mensual_pactado,
+                              permite_upgrade_sin_adendum, clausula_permanencia_meses)
+
+
+def _editar_alta(con: sqlite3.Connection, tabla: str, referencia: str, fila: dict[str, Any],
+                 nueva_referencia: str | None = None) -> None:
+    """Si la fila se dio de alta en la consola, `restaurar()` la vuelve a sembrar
+    ya editada. Lo que viene de la semilla vuelve a sus valores iniciales."""
+    con.execute("UPDATE alta SET referencia = ?, fila = ? WHERE tabla = ? AND referencia = ?",
+                (nueva_referencia or referencia, json.dumps(fila, ensure_ascii=False), tabla, referencia))
+
+
+def editar_cuenta(cuenta_id: str, *, razon_social: str, segmento: str, estado: str, dominio: str = "") -> None:
+    """Los datos de la ficha. Un dominio vacio deja la cuenta sin dominio corporativo."""
+    razon_social = (razon_social or "").strip()
+    if not razon_social:
+        raise ErrorSistema("La razon social es obligatoria.")
+    if estado not in ESTADOS_CUENTA:
+        raise ErrorSistema(f"Estado de cuenta desconocido: '{estado}'.")
+    if not (segmento or "").strip():
+        raise ErrorSistema("El segmento es obligatorio.")
+    dominio = (dominio or "").strip().lower().lstrip("@")
+    if dominio and ("." not in dominio or "@" in dominio or " " in dominio):
+        raise ErrorSistema(f"'{dominio}' no es un dominio valido.")
+    with conexion() as con:
+        antes = _uno(con, "SELECT * FROM cuenta WHERE cuenta_id = ?", cuenta_id)
+        if not antes:
+            raise ErrorSistema(f"La cuenta {cuenta_id} no existe.")
+        dominio = dominio or f"{cuenta_id.lower()}{_SIN_DOMINIO}"
+        otra = _uno(con, "SELECT cuenta_id FROM cuenta WHERE dominio = ? AND cuenta_id != ?", dominio, cuenta_id)
+        if otra:
+            raise ErrorSistema(f"El dominio {dominio} ya es de la cuenta {otra['cuenta_id']}.")
+        nuevos = {"razon_social": razon_social, "segmento": segmento.strip(), "estado": estado, "dominio": dominio}
+        cambios = {k: v for k, v in nuevos.items() if antes[k] != v}
+        if not cambios:
+            return
+        con.execute("UPDATE cuenta SET razon_social = ?, segmento = ?, estado = ?, dominio = ? WHERE cuenta_id = ?",
+                    (razon_social, nuevos["segmento"], estado, dominio, cuenta_id))
+        _editar_alta(con, "cuenta", cuenta_id, {**antes, **nuevos})
+        _registrar(con, "CRM", "editar_cuenta", cuenta_id=cuenta_id, referencia=cuenta_id,
+                   antes={k: antes[k] for k in cambios}, despues=cambios, detalle="Datos de la cuenta editados.")
+
+
+def editar_contacto(cuenta_id: str, correo_actual: str, *, correo: str, nombre: str = "",
+                    autorizado: bool = True) -> str:
+    """Tambien el correo: es por donde el copiloto reconoce al cliente."""
+    correo_actual = (correo_actual or "").strip().lower()
+    correo = _correo_valido(correo)
+    with conexion() as con:
+        antes = _uno(con, "SELECT * FROM contacto WHERE correo = ? AND cuenta_id = ?", correo_actual, cuenta_id)
+        if not antes:
+            raise ErrorSistema(f"{correo_actual} no es contacto de la cuenta {cuenta_id}.")
+        if correo != correo_actual:
+            duenio = _uno(con, "SELECT cuenta_id FROM contacto WHERE correo = ?", correo)
+            if duenio:
+                raise ErrorSistema(f"El correo {correo} ya es contacto de la cuenta {duenio['cuenta_id']}.")
+        nuevos = {"correo": correo, "nombre": (nombre or "").strip(), "autorizado": int(bool(autorizado))}
+        cambios = {k: v for k, v in nuevos.items() if antes[k] != v}
+        if not cambios:
+            return correo
+        con.execute("UPDATE contacto SET correo = ?, nombre = ?, autorizado = ? WHERE correo = ?",
+                    (correo, nuevos["nombre"], nuevos["autorizado"], correo_actual))
+        _editar_alta(con, "contacto", correo_actual, {**antes, **nuevos}, nueva_referencia=correo)
+        _registrar(con, "CRM", "editar_contacto", cuenta_id=cuenta_id, referencia=correo,
+                   antes={k: antes[k] for k in cambios}, despues=cambios, detalle="Contacto editado.")
+        return correo
+
+
+def eliminar_contacto(correo: str) -> None:
+    """Solo los contactos dados de alta en la consola: la semilla no se toca."""
+    correo = (correo or "").strip().lower()
+    with conexion() as con:
+        if not _uno(con, "SELECT id FROM alta WHERE tabla = 'contacto' AND referencia = ?", correo):
+            raise ErrorSistema(f"{correo} viene de la semilla: no se puede eliminar desde la consola.")
+        con.execute("DELETE FROM contacto WHERE correo = ?", (correo,))
+        con.execute("DELETE FROM alta WHERE tabla = 'contacto' AND referencia = ?", (correo,))
+
+
+def eliminar_cuenta(cuenta_id: str) -> None:
+    """Borra un cliente creado en la consola con todo lo que cuelga de el."""
+    with conexion() as con:
+        if not _uno(con, "SELECT id FROM alta WHERE tabla = 'cuenta' AND referencia = ?", cuenta_id):
+            raise ErrorSistema(f"La cuenta {cuenta_id} viene de la semilla: no se puede eliminar.")
+        con.execute("DELETE FROM ticket_nota WHERE ticket IN (SELECT ticket FROM ticket WHERE cuenta_id = ?)",
+                    (cuenta_id,))
+        con.execute("DELETE FROM nota_credito WHERE factura IN (SELECT factura FROM factura WHERE cuenta_id = ?)",
+                    (cuenta_id,))
+        for tabla in ("ticket", "factura", "contrato", "servicio", "contacto", "operacion", "alta", "cuenta"):
+            con.execute(f"DELETE FROM {tabla} WHERE cuenta_id = ?", (cuenta_id,))
+
+
+def nodos() -> list[dict[str, Any]]:
+    with conexion() as con:
+        return [dict(r) for r in con.execute("SELECT * FROM nodo ORDER BY nodo")]
+
+
+def dominio_visible(dominio: str) -> str:
+    """El dominio tal como se muestra: vacio si la cuenta no tiene uno corporativo."""
+    return "" if (dominio or "").endswith(_SIN_DOMINIO) else dominio
+
+
+# --------------------------------------------------------------------------- #
 # Lectura para la pestana "Sistemas"
 # --------------------------------------------------------------------------- #
 def cuentas() -> list[dict[str, Any]]:
+    """Con `creada`: si se dio de alta en la consola (y por tanto se puede eliminar)."""
     with conexion() as con:
-        return [dict(r) for r in con.execute("SELECT * FROM cuenta ORDER BY razon_social")]
+        creadas = {r[0] for r in con.execute("SELECT referencia FROM alta WHERE tabla = 'cuenta'")}
+        return [{**dict(r), "creada": r["cuenta_id"] in creadas}
+                for r in con.execute("SELECT * FROM cuenta ORDER BY razon_social")]
 
 
 def operaciones(cuenta_id: str | None = None, limite: int = 60) -> list[dict[str, Any]]:
@@ -495,6 +776,7 @@ def vista_cuenta(cuenta_id: str) -> dict[str, Any] | None:
                 "SELECT texto, creada_en FROM ticket_nota WHERE ticket = ? ORDER BY id", (t["ticket"],))]
         modificadas = {r[0] for r in con.execute(
             "SELECT DISTINCT referencia FROM operacion WHERE cuenta_id = ?", (cuenta_id,))}
+        altas = {r[0] for r in con.execute("SELECT referencia FROM alta WHERE cuenta_id = ?", (cuenta_id,))}
     ctr = contrato(cuenta_id)
     pactado = ctr.get("valor_mensual_pactado")
     fac = [{**f, "diferencia": (f["valor_neto"] - pactado) if pactado is not None else None}
@@ -508,5 +790,8 @@ def vista_cuenta(cuenta_id: str) -> dict[str, Any] | None:
         "notas_credito": notas_credito(cuenta_id),
         "tickets": tks,
         "modificadas": modificadas,
+        # Lo dado de alta en la consola; `creada` si la cuenta entera lo fue.
+        "altas": altas,
+        "creada": cuenta_id in altas,
         "operaciones": operaciones(cuenta_id),
     }

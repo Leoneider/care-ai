@@ -31,6 +31,310 @@ Los dos tramos son **procesos distintos**. El poller de Gmail corre el primero y
 deja el caso congelado; el ejecutivo dispara el segundo desde la UI, minutos u
 horas después. Lo único que los une es el `thread_id` y un archivo SQLite.
 
+## Cómo resuelve la empresa un ticket (proceso de negocio)
+
+Esta sección describe el **procedimiento** que sigue Care AI para resolver una
+solicitud de un cliente B2B, paso a paso y en términos de negocio. En cada ticket
+intervienen tres actores, y cada uno tiene un papel que no se cruza con el de los otros:
+
+| Actor | Qué hace | Qué **no** hace |
+|---|---|---|
+| **La IA** | Lee el correo, separa las solicitudes, las clasifica, extrae los datos que dio el cliente y elige acciones de una lista cerrada | Consultar sistemas, calcular montos, decidir, ejecutar |
+| **Los procedimientos fijos** (funciones deterministas) | Consultan CRM, red, contratos, facturación y mesa de servicio; aplican las reglas del negocio; ejecutan los cambios y los verifican | Interpretar lenguaje natural |
+| **El ejecutivo Care** | Aprueba, edita o rechaza; revisa los casos de riesgo antes de cerrarlos | — |
+
+Los procedimientos fijos son el equivalente al **manual de operación** de un
+analista de postventa: siempre hacen las mismas consultas, en el mismo orden, con
+las mismas reglas. Por eso dos correos iguales reciben siempre el mismo análisis,
+y cada conclusión se puede auditar.
+
+### El recorrido completo de un ticket
+
+```
+ 1. Recibir el correo          ── ¿es nuevo y es de un cliente?
+ 2. Consultar al cliente (CRM) ── ¿quién escribe y está autorizado?
+ 3. Entender la solicitud (IA) ── ¿qué pide y con qué datos?
+ 4. Verificar contra sistemas  ── ¿lo que pide es posible / tiene sustento?     ◀── procedimientos fijos
+ 5. Proponer el plan (IA)      ── ¿qué acciones del catálogo aplican?
+ 6. Decisión del ejecutivo     ── aprobar / editar / rechazar                    ◀── humano
+ 7. Ejecutar                   ── abrir ticket, aplicar cambios, derivar          ◀── procedimientos fijos
+ 8. Verificar                  ── ¿el cambio quedó realmente en el sistema?       ◀── procedimientos fijos
+ 9. Cerrar                     ── automático si no hay riesgo; si no, el ejecutivo ◀── regla fija / humano
+10. Responder al cliente       ── borrador en Gmail que envía el ejecutivo
+```
+
+---
+
+### Paso 1. Recibir el correo
+
+**Cuándo arranca:** cada vez que el barrido del buzón (p. ej. cada 60 s) encuentra
+un correo **no leído en la bandeja de entrada** (`in:inbox is:unread`, configurable
+con `GMAIL_QUERY`).
+
+**Controles antes de abrir un caso:**
+
+| Control | Regla | Si no pasa |
+|---|---|---|
+| ¿Ya lo procesamos? | Se busca el identificador único del correo (Message-ID) | Se descarta: nunca hay dos casos por el mismo correo |
+| ¿Lo escribimos nosotros? | Si es un enviado, un borrador o viene del propio buzón | Se descarta: evita que nuestra respuesta vuelva a entrar como solicitud nueva |
+| Limpieza | Se eliminan citas de correos anteriores y firmas | — (el análisis se hace solo sobre lo nuevo) |
+
+---
+
+### Paso 2. Consultar al cliente en el CRM
+
+**Pregunta de negocio:** *¿Quién nos escribe, de qué cuenta es y tiene autoridad
+para pedir cambios?*
+
+**Procedimiento:**
+
+1. Se toma la dirección de correo del remitente.
+2. **Búsqueda por contacto exacto:** ¿esa dirección está registrada como contacto de alguna cuenta? Si está, se obtiene la cuenta y si el contacto está **autorizado** o no.
+3. **Búsqueda por dominio (respaldo):** si el correo exacto no existe, se busca la cuenta por el dominio (`@empresa.com`). La cuenta se identifica, pero el remitente queda como **contacto NO autorizado**: el dominio dice de qué empresa es, no que esa persona pueda pedir cambios.
+4. Si se identificó la cuenta, se traen sus datos: razón social, segmento, estado y **la lista de servicios contratados** (sede, producto, Mbps y nodo de red de cada uno).
+
+**Resultados posibles:**
+
+| Resultado | Qué significa | Consecuencia en el proceso |
+|---|---|---|
+| Cuenta encontrada, contacto autorizado | Caso normal | Sigue sin penalización |
+| Cuenta encontrada por dominio, contacto no autorizado | Alguien de la empresa, pero no registrado como autorizado | Confianza × 0,70 y el caso sube marcado para revisión |
+| Cuenta no encontrada | El remitente no es cliente B2B conocido | Cuenta `NO IDENTIFICADA`, confianza × 0,70, **no se ejecuta nada en sistemas** y el caso nunca cierra solo |
+
+---
+
+### Paso 3. Entender la solicitud (IA)
+
+La IA separa el correo en solicitudes independientes (un correo puede pedir un
+upgrade **y** reclamar una factura) y a cada una le asigna un tipo, un resumen, el
+**fragmento literal** del correo que la sustenta y los datos que el cliente dio.
+Cada solicitud sigue su propio procedimiento en paralelo.
+
+| Tipo | Prioridad | Datos que el cliente debe dar |
+|---|---|---|
+| Falla técnica | 1 (más urgente) | sede, descripción de la falla, hora de inicio |
+| Inconsistencia de facturación | 2 | periodo |
+| Baja de servicio | 2 | servicio, motivo |
+| Ampliación de ancho de banda | 3 | sede, ancho de banda objetivo |
+| Otro | 3 | — |
+| Cambio de datos de contacto | 4 | contacto nuevo, rol |
+| Consulta general | 5 | — |
+
+Si falta un dato obligatorio, no se inventa: queda como **faltante** y más adelante
+se le pide al cliente.
+
+---
+
+### Paso 4. Verificar contra los sistemas (procedimientos fijos)
+
+Aquí está el corazón del proceso. Según el tipo de solicitud se corre un
+procedimiento de verificación distinto. Cada chequeo termina en **ok**, **alerta**
+o **falla**, y algunos son **bloqueantes**: impiden que se proponga la acción que
+ejecuta el cambio.
+
+#### 4A. Ampliación de ancho de banda
+
+| # | Consulta | Sistema | Regla de negocio | Resultado |
+|---|---|---|---|---|
+| 1 | **Ubicar el servicio de la sede** | CRM (servicios de la cuenta) | Se busca la sede que nombró el cliente entre los servicios de la cuenta. Tolera tildes, mayúsculas y palabras de relleno ("la sede de Bogotá" encuentra "Bogota - Sede Chapinero"). Compara palabras completas: "Cali" no encuentra "Calle 100" | No se encuentra → **falla bloqueante**, se detiene la verificación |
+| 2 | **Calcular el incremento** | — | Incremento = Mbps pedidos − Mbps contratados hoy. Entiende "500", "500 Mbps", "1.000 Mbps" o "1 Gbps" (= 1000) | Incremento ≤ 0 (o no dijo cuánto) → **alerta bloqueante**: confirmar con el cliente |
+| 3 | **Consultar capacidad del nodo** | Red | El nodo que atiende ese servicio debe estar **saludable** y tener libres **al menos** los Mbps del incremento | Nodo saturado o sin capacidad → **falla bloqueante**: requiere Ingeniería |
+| 4 | **Revisar el contrato** | Contratos | ¿El contrato permite subir el ancho de banda sin adendum? | Sí → ok. No → alerta (no bloquea, pero el adendum queda a cargo del ejecutivo) |
+
+**Qué se propone según el resultado:**
+
+```
+¿Encontré la sede? ── no ──▶ pedir dato / escalar
+       │ sí
+¿Es un aumento real? ── no ──▶ SOLICITAR_DATO_FALTANTE (confirmar Mbps)
+       │ sí
+¿El nodo tiene capacidad? ── no ──▶ ESCALAR_A_INGENIERIA (nunca el upgrade)
+       │ sí
+APLICAR_UPGRADE_ANCHO_BANDA  (+ COTIZAR_UPGRADE solo si el contrato exige adendum)
+```
+
+#### 4B. Inconsistencia de facturación
+
+| # | Consulta | Sistema | Regla de negocio | Resultado |
+|---|---|---|---|---|
+| 1 | **Ubicar la factura** | Facturación | Por número si el cliente lo dio; si no, **por periodo**. Entiende "septiembre", "sept 2026", "09/2026" o "2026-09". Sin año, toma el último mes con ese nombre que ya pasó (en octubre, "la de diciembre" es la del año anterior) | No se encuentra → **falla bloqueante** |
+| 2 | **Calcular el neto** | Facturación | Neto = valor facturado − notas crédito ya emitidas sobre esa factura | — |
+| 3 | **Comparar con lo pactado** | Contratos | Neto vs. valor mensual pactado en el contrato. Se compara el **neto** para que una factura ya corregida no vuelva a salir como reclamo | Diferencia ≠ 0 → alerta: *el reclamo tiene sustento*. Igual → ok: la factura cuadra |
+| 4 | **Buscar tickets abiertos** | Mesa de servicio | ¿La cuenta ya tiene un ticket de facturación abierto (abierto, en proceso o en espera)? | Sí → alerta: asociar en vez de duplicar |
+
+**Qué se propone según el resultado:**
+
+```
+¿Encontré la factura? ── no ──▶ SOLICITAR_DATO_FALTANTE / ESCALAR_A_FACTURACION
+       │ sí
+¿El neto supera lo pactado? ── no ──▶ COMPARAR_FACTURA_VS_CONTRATO (informar que cuadra)
+       │ sí
+SOLICITAR_NOTA_CREDITO  (+ ASOCIAR_A_TICKET_EXISTENTE si ya había uno abierto)
+```
+
+#### 4C. Los demás tipos
+
+Falla técnica, baja de servicio, cambio de contacto, consulta general y otro **no
+tienen procedimiento de verificación automático** en la POC. Se marcan con la
+alerta *"sin validador: revisión manual completa"* y el ejecutivo los revisa enteros.
+
+---
+
+### Paso 5. Proponer el plan de acción (IA con lista cerrada)
+
+Con los resultados de la verificación, la IA arma un plan de **máximo 4 acciones**,
+elegidas **solo** del catálogo del tipo de solicitud:
+
+| Tipo | Acciones permitidas |
+|---|---|
+| Ampliación | Verificar factibilidad, Aplicar upgrade, Cotizar upgrade, Agendar visita técnica, Solicitar dato faltante, Escalar a Ingeniería |
+| Facturación | Comparar factura vs. contrato, Solicitar nota crédito, Asociar a ticket existente, Solicitar dato faltante, Escalar a Facturación |
+| Falla técnica | Crear incidente, Consultar estado de red, Agendar visita técnica, Escalar a NOC |
+| Cambio de contacto | Actualizar contacto en CRM, Solicitar dato faltante |
+| Baja de servicio | Verificar permanencia, Escalar a Retención, Solicitar dato faltante |
+| Consulta general | Responder con plantilla, Solicitar dato faltante |
+| Otro | Escalar a Supervisor |
+
+Reglas que la IA debe cumplir: si hay un bloqueo, no propone el cambio sino el
+escalamiento; si faltan datos, incluye *Solicitar dato faltante*; si todo está bien,
+incluye la acción que **ejecuta** el cambio y no solo las que lo preparan. Si
+propone algo fuera del catálogo, se descarta y el caso sube marcado en rojo.
+
+**Semáforo de la tarjeta.** Cada solicitud parte de la confianza de la IA y se
+penaliza: falla en una verificación × 0,60; faltan datos × 0,85; cliente no
+identificado o no autorizado × 0,70. Sube **en rojo** si hay bloqueo, faltan datos,
+hubo acciones fuera de catálogo o la confianza queda por debajo de **0,75**.
+
+---
+
+### Paso 6. Decisión del ejecutivo
+
+Ningún ticket se ejecuta sin que un ejecutivo lo apruebe.
+
+| Decisión | Qué pasa |
+|---|---|
+| **Aprobar** | Se ejecutan todas las acciones propuestas |
+| **Editar** (quitar acciones o corregir parámetros) | Se ejecutan solo las acciones que dejó. No puede inventar acciones nuevas |
+| **Rechazar** | No se ejecuta nada; el caso se descarta |
+
+Si hay un bloqueo, para aprobar debe marcar *"Apruebo pese al bloqueo"* y escribir
+el motivo.
+
+---
+
+### Paso 7. Ejecutar (procedimientos fijos que cambian los sistemas)
+
+Primero, por cada solicitud aprobada se **abre un ticket de seguimiento de Care**
+en la mesa de servicio (estado *en proceso*, tema según el tipo: red, facturación o
+CRM). Cada acción que se ejecuta deja una nota en ese ticket, y todo cambio queda
+en la **bitácora** del sistema con el valor de antes y el de después.
+
+Luego cada acción corre su procedimiento. Regla clave: **los montos y cantidades
+salen de los sistemas, no de la IA.** La IA puede sugerir un parámetro, pero el
+procedimiento lo recalcula.
+
+| Acción | Procedimiento | Controles del sistema (se defiende solo) | Resultado |
+|---|---|---|---|
+| **Aplicar upgrade** | Ubica el mismo servicio que se validó, sube sus Mbps al valor pedido y **descuenta el incremento de la capacidad libre del nodo** | Rechaza si no es un aumento, si el nodo no está saludable o si no alcanza la capacidad — aunque la verificación ya lo haya revisado | Ejecutada / error |
+| **Emitir nota crédito** | Monto = neto de la factura − valor pactado en el contrato. Emite la nota (numeración `NC-70001`, `NC-70002`…) y el neto queda igual a lo pactado | Rechaza montos ≤ 0 o mayores que el saldo de la factura. Si la factura ya cuadra, no emite nada | Ejecutada / error |
+| **Asociar a ticket existente** | Busca un ticket abierto de la cuenta con el mismo tema y le anota el caso | Si no había ninguno, no es error: el seguimiento queda en el ticket de Care | Ejecutada / consultada |
+| **Verificar factibilidad** | Relee servicio y nodo e informa capacidad libre vs. incremento | — | Consultada |
+| **Comparar factura vs. contrato** | Informa neto, pactado y diferencia | — | Consultada |
+| **Cotizar upgrade** | Revisa el contrato: si permite upgrade sin adendum, no hace falta cotizar | Si exige adendum, queda para el ejecutivo | Consultada / manual |
+| **Escalar / derivar** | Abre un ticket nuevo para el equipo responsable | — | Derivada |
+| **Solicitar dato faltante** | Registra qué datos faltan para incluirlos en la respuesta al cliente | — | Pendiente del cliente |
+| Actualizar contacto, Consultar estado de red, Verificar permanencia, Responder con plantilla | Sin procedimiento automático en la POC | — | Manual (la hace el ejecutivo) |
+
+**A qué equipo va cada derivación:**
+
+| Acción | Equipo |
+|---|---|
+| Escalar a Ingeniería | Ingeniería |
+| Escalar a Facturación | Facturación |
+| Escalar a NOC, Crear incidente | NOC |
+| Escalar a Retención | Retención |
+| Escalar a Supervisor | Supervisor |
+| Agendar visita técnica | Campo |
+
+Si el cliente no está identificado, **ninguna** acción se ejecuta: todas quedan
+como manuales. Si un sistema rechaza una operación, esa acción queda en error y
+las demás siguen.
+
+---
+
+### Paso 8. Verificar que el cambio quedó
+
+Que el procedimiento dijera "hecho" no basta: se **vuelve a leer** el sistema.
+
+| Acción ejecutada | Qué se relee | Se confirma si… |
+|---|---|---|
+| Upgrade | El servicio en el inventario de red | Tiene exactamente los Mbps esperados |
+| Nota crédito | La factura en facturación | Su neto quedó igual a lo pactado |
+| Asociar a ticket | El ticket previo en la mesa de servicio | Tiene la nota con el número del caso |
+
+---
+
+### Paso 9. Cerrar: automático o con revisión
+
+El caso **cierra solo** únicamente cuando **todas** las acciones quedaron
+ejecutadas o consultadas, todas las verificaciones confirmaron el cambio y no hay
+ningún motivo de riesgo. Pasa a *En verificación* (segunda revisión del ejecutivo) si:
+
+| Motivo | Por qué necesita ojos humanos |
+|---|---|
+| Una acción falló o el sistema la rechazó | Hay algo sin resolver |
+| Una verificación no confirmó el cambio | El sistema no refleja lo que se hizo |
+| Una acción quedó derivada a otro equipo | Depende de otro equipo |
+| Falta un dato del cliente | Depende del cliente |
+| Una acción es manual | Nadie la hizo todavía |
+| Nota crédito mayor a **2.000.000 COP** (`CARE_TOPE_NOTA_CREDITO`) | El sistema lo permite, pero el negocio quiere un segundo par de ojos sobre montos altos |
+| Se aprobó pese a un bloqueo | Se tomó un riesgo consciente |
+| Remitente sin cuenta | No hay a quién atribuir el caso |
+
+En esa revisión el ejecutivo elige:
+
+- **Cerrar:** los tickets de seguimiento de Care pasan a *resuelto*.
+- **Dejar abierto:** pasan a *en espera*.
+
+Los tickets derivados a otros equipos nunca se tocan: son de ellos.
+
+---
+
+### Paso 10. Responder al cliente
+
+Con `CARE_BORRADOR_GMAIL=1`, al resolverse el caso (salvo rechazo) se redacta la
+respuesta y se deja **como borrador** en el hilo de Gmail: el ejecutivo la revisa y
+la envía. La respuesta cuenta solo lo ejecutado y verificado, con las cifras exactas
+del sistema; lo que quedó en curso lo dice como en curso, sin plazos ni precios; y
+pide por su nombre los datos que faltan. Si el caso cerró, el hilo se etiqueta
+`CareAI/Resuelto`.
+
+---
+
+### Ejemplo real con la cuenta de la demo
+
+**Cuenta:** UFPSO · `B2B-005130` · contacto autorizado `ltrigosg@ufpso.edu.co`.
+
+> *"Necesitamos ampliar el ancho de banda de la sede de Bogotá a 500 Mbps […] la
+> factura de septiembre llegó por un valor distinto al pactado en el contrato."*
+
+| Paso | Solicitud 1: ampliación | Solicitud 2: facturación |
+|---|---|---|
+| Consultar cliente | Contacto exacto encontrado, autorizado | ← mismo cliente |
+| Ubicar | "Bogotá" → SVC-9310, *Bogota - Sede Chapinero*, 200 Mbps, nodo BOG-N21 | "septiembre" → 2026-09 → factura FE-91502 por 7.150.000 COP |
+| Calcular | Incremento 500 − 200 = **300 Mbps** | Neto 7.150.000 (sin notas previas) |
+| Consultar | Nodo BOG-N21: saludable, 800 Mbps libres ≥ 300 → **ok** | Contrato CTO-3107 pacta 6.200.000 → diferencia **950.000** → reclamo con sustento |
+| Contrato / tickets | CTO-3107 permite upgrade sin adendum → ok | Sin tickets abiertos de facturación |
+| Plan propuesto | Aplicar upgrade | Solicitar nota crédito |
+| Ejecutar | Ticket INC-56002; SVC-9310 queda en 500 Mbps; nodo queda con 500 libres | Ticket INC-56001; nota NC-70001 por 950.000; neto 6.200.000 |
+| Verificar | SVC-9310 tiene 500 Mbps → confirmado | FE-91502 neto 6.200.000 → confirmado |
+| Cerrar | Sin motivos de riesgo (950.000 < tope 2.000.000) → **cierre automático**, tickets *resuelto* | ← |
+
+**El mismo correo, pero para la sede de Cúcuta:** SVC-9311 corre sobre el nodo
+CUC-N07, *saturado* con 30 Mbps libres → **falla bloqueante** → la IA no puede
+proponer el upgrade y propone *Escalar a Ingeniería*. Al aprobar se abre un ticket
+para Ingeniería (derivada) y el caso **no cierra solo**: pasa a *En verificación*.
+
 ## Correr ahora mismo
 
 Requiere **Python 3.11 o superior**: las librerías de Google dejan de publicar
@@ -352,7 +656,7 @@ que la factura. `backends.py` sigue siendo la costura, con las mismas firmas de
 lectura y cuatro de escritura nuevas.
 
 **La cuenta de la demo** es `UFPSO (cuenta de pruebas)` · `B2B-005130`, con
-`ltrigosg@ufpso.edu.co` y `ltrigos@ufpso.edu.co` como contactos autorizados. Está
+`ltrigosg@ufpso.edu.co` como contacto autorizado. Está
 preparada para este correo, que recorre todo el camino:
 
 > Necesitamos ampliar el ancho de banda de la sede de Bogota a 500 Mbps […]
@@ -388,8 +692,19 @@ acreditar sale de facturación y contratos.
 verificación y Resueltos, y devuelve el mini sistema a la semilla. Los casos se
 archivan, no se borran: así el poller no vuelve a meter los correos `CARE-TEST`
 viejos del buzón. Para arrancar, se manda un correo nuevo. `.\care.cmd restaurar`
-(o el botón *Restaurar* al pie de la consola de sistemas) solo restaura los
-sistemas, sin tocar la bandeja.
+(o *Archivo → Restaurar sistemas…* en la consola) solo restaura los sistemas, sin
+tocar la bandeja.
+
+**Probar con otros correos:** la semilla trae una cuenta (UFPSO). Para
+ensayar con más remitentes, en la consola de sistemas *Nuevo cliente* da de alta
+una cuenta completa: contactos, servicios, contrato y facturas. Trae escenarios
+precargados (upgrade que cabe, nodo saturado, factura que cuadra, sin contrato);
+solo falta poner tu correo. También se puede agregar un contacto a una cuenta
+existente, p. ej. tu Gmail personal en UFPSO. El copiloto reconoce al cliente
+por el correo exacto del contacto; si se deja vacío el dominio corporativo, otro
+remitente de `gmail.com` no cae en esa cuenta. Lo dado de alta sobrevive a
+*Restaurar*: vuelve a su estado inicial (tabla `alta` de `sistemas.db`), salvo
+que se desmarque *Conservar los clientes de prueba*.
 
 ## El agente y los sistemas son dos componentes
 
@@ -399,7 +714,7 @@ La POC corre **dos aplicaciones web separadas**, a propósito:
 |---|---|---|
 | Qué es | Bandeja del ejecutivo: revisar, aprobar, cerrar | Consola de CRM, facturación, contratos, red y tickets |
 | Código | `src/web/` | `src/sistemas_web/` |
-| Arranque | `python -m src.web` · `.\care.cmd ui` | `python -m src.sistemas_web` · `.\care.cmd sistemas` |
+| Arranque | `python -m src.web` · `.\care.cmd ui` | `python -m src.sistemas_web` · `.\care.cmd sistemas` · `.\care.cmd ventana` (ventana propia, modo app) |
 | Puerto | `8000` | `8002` |
 | Datos | `data/care.db` + checkpoints del grafo | `data/sistemas.db` (`CARE_SISTEMAS_DB`), con su bitácora |
 | Conoce al otro | Solo por `backends.py` (escribir) y un enlace (`CARE_SISTEMAS_URL`) | No: no importa `db`, `servicio` ni el grafo |
@@ -421,9 +736,12 @@ Reglas que sostienen la separación:
   caso registró al ejecutar. Para ver el estado de una cuenta, el detalle del
   caso enlaza a la consola (*abrir en el sistema legado ↗*). La URL sale de
   `CARE_SISTEMAS_URL` (por defecto `http://127.0.0.1:8002`).
-- **Cada app reinicia lo suyo.** *Restaurar* en la consola no toca la bandeja;
-  `.\care.cmd reiniciar` es lo único que reinicia las dos, porque es la demo y no
-  una de las apps.
+- **Cada app reinicia lo suyo.** Por facilidad para probar la POC, *Restaurar* en
+  la consola trae marcada *También vaciar la bandeja de Care AI*: la consola se lo
+  pide a la bandeja por HTTP (`POST /demo/vaciar`, URL en `CARE_BANDEJA_URL`, por
+  defecto `http://127.0.0.1:8000`), sin importar su código. Los casos se
+  archivan, no se borran. Si la bandeja no contesta, los sistemas se restauran
+  igual y se avisa. `.\care.cmd reiniciar` hace lo mismo desde la terminal.
 
 ## Archivos
 
