@@ -1,4 +1,6 @@
-# Care AI — POC Fase 1 y Fase 2 (copiloto, ejecución y cierre con revisión humana)
++-
+-+
+3# Care AI — POC Fase 1 y Fase 2 (copiloto, ejecución y cierre con revisión humana)
 
 Esqueleto funcional en LangGraph que va **desde el buzón de Gmail hasta la decisión del ejecutivo**, siguiendo el flujo del diagrama: Cliente → Care AI → Derivación → Ejecutivo Care.
 

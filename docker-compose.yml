@@ -1,0 +1,48 @@
+# Care AI en contenedores: el equivalente de `.\care.cmd up`.
+#
+#   docker compose up -d --build          bandeja + sistemas + poller
+#   docker compose up -d bandeja sistemas sin Gmail (p. ej. con CARE_FAKE_LLM=1)
+#   docker compose logs -f poller
+#
+# Los tres comparten el volumen care-data: la bandeja y el poller se coordinan por
+# data/care.db, y el grafo escribe en data/sistemas.db. SQLite sobre un volumen
+# local de una sola maquina esta bien; en varias maquinas, pasar a Postgres.
+
+x-comun: &comun
+  env_file: .env
+  restart: unless-stopped
+  volumes:
+    - care-data:/app/data
+
+services:
+  bandeja:
+    <<: *comun
+    build: { context: ., dockerfile: src/web/Dockerfile }
+    image: care-ai/bandeja
+    # Solo en localhost: la UI no tiene autenticacion.
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      CARE_SISTEMAS_URL: http://127.0.0.1:8002   # enlace que abre el navegador
+
+  sistemas:
+    <<: *comun
+    build: { context: ., dockerfile: src/sistemas_web/Dockerfile }
+    image: care-ai/sistemas
+    ports: ["127.0.0.1:8002:8002"]
+    environment:
+      CARE_BANDEJA_URL: http://127.0.0.1:8000
+
+  poller:
+    <<: *comun
+    build: { context: ., dockerfile: src/poller/Dockerfile }
+    image: care-ai/poller
+    environment:
+      POLL_INTERVALO: "60"
+    volumes:
+      - care-data:/app/data
+      # Secretos OAuth de Gmail. Sin :ro porque el token puede refrescarse en disco.
+      - ./credentials.json:/app/gmail/credentials.json
+      - ./token.json:/app/gmail/token.json
+
+volumes:
+  care-data:

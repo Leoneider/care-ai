@@ -1,0 +1,27 @@
+# Lo que NO entra a ninguna imagen. Contexto de build = raiz del repo.
+
+# Secretos: se inyectan en tiempo de ejecucion (env_file / volumen), nunca se hornean.
+.env
+credentials.json
+client_secret*.json
+token.json
+
+# Datos de clientes y estado local: viven en el volumen, no en la imagen.
+data/
+*.db
+*.db-wal
+*.db-shm
+feedback.jsonl
+
+# Entorno local y basura de herramientas.
+.venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+.langgraph_api/
+.git/
+.vscode/
+scripts/
+care.cmd
+src/**/Dockerfile
+docker-compose.yml
