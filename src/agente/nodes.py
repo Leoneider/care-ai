@@ -264,7 +264,7 @@ def ruta_feedback() -> Path:
     archivo que las revisiones reales. Ahora el conftest apunta
     CARE_FEEDBACK_JSONL a un temporal y las pruebas no tocan el dataset.
 
-    Sigue siendo un .jsonl: `src/feedback.py` (la version en BD) esta escrito
+    Sigue siendo un .jsonl: `src/agente/feedback.py` (la version en BD) esta escrito
     pero deliberadamente sin conectar, y esa decision no cambia aqui.
     """
     valor = Path(os.getenv("CARE_FEEDBACK_JSONL", "feedback.jsonl"))

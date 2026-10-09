@@ -10,8 +10,8 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
-from src import db, servicio
-from src.demo import CORREO
+from src.agente import db, servicio
+from src.agente.demo import CORREO
 from src.web.app import app, bloqueantes_de
 
 

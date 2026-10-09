@@ -36,8 +36,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import db, servicio
-from ..nodes import UMBRAL_CONFIANZA
+from ..agente import db, servicio
+from ..agente.nodes import UMBRAL_CONFIANZA
 
 PLANTILLAS = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 

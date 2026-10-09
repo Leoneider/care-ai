@@ -12,7 +12,7 @@ Dos cosas que antes no estaban y el README ya senalaba como deuda:
   corrida anterior. `CARE_CHECKPOINT=memory` lo garantiza.
 
 Se fija a nivel de modulo, no en un fixture, porque `pytest` importa los modulos
-de prueba antes de resolver fixtures y `src.graph` decide su checkpointer al
+de prueba antes de resolver fixtures y `src.agente.graph` decide su checkpointer al
 construir el grafo.
 """
 
@@ -40,7 +40,8 @@ os.environ["LANGSMITH_TRACING"] = "false"  # las pruebas no mandan trazas
 
 import pytest  # noqa: E402
 
-from src import db, servicio, sistemas  # noqa: E402
+from src.agente import db, servicio  # noqa: E402
+from src.sistemas_web import sistemas  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

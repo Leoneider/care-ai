@@ -19,7 +19,8 @@ import os
 from email.utils import parseaddr
 from typing import Any
 
-from . import db, sistemas
+from . import db
+from ..sistemas_web import sistemas
 
 # Para que `ejecucion.py` distinga un rechazo del sistema de un bug.
 ErrorSistema = sistemas.ErrorSistema

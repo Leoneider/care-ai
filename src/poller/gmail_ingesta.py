@@ -5,10 +5,10 @@ mensaje se normaliza a un `CorreoEntrante` (ver `state.py`) y se entrega a
 `servicio.procesar_correo`, que corre el grafo hasta el `interrupt` y deja el
 caso en la bandeja.
 
-    python -m src.gmail_ingesta --autorizar     # una vez, abre el navegador
-    python -m src.gmail_ingesta                 # un barrido
-    python -m src.gmail_ingesta --loop 60       # barrido cada 60 s
-    python -m src.gmail_ingesta --dry-run       # normaliza e imprime, no corre el grafo
+    python -m src.poller.gmail_ingesta --autorizar     # una vez, abre el navegador
+    python -m src.poller.gmail_ingesta                 # un barrido
+    python -m src.poller.gmail_ingesta --loop 60       # barrido cada 60 s
+    python -m src.poller.gmail_ingesta --dry-run       # normaliza e imprime, no corre el grafo
 
 Por que la API de Gmail y no IMAP: da el `threadId` nativo, permite etiquetar lo
 ya procesado, y el dia que el volumen justifique push por Pub/Sub solo cambia el
@@ -37,8 +37,8 @@ from html import unescape
 from pathlib import Path
 from typing import Any
 
-from . import servicio
-from .db import RAIZ
+from ..agente import servicio
+from ..agente.db import RAIZ
 
 SCOPE_ESCRITURA = "https://www.googleapis.com/auth/gmail.modify"
 SCOPE_LECTURA = "https://www.googleapis.com/auth/gmail.readonly"
@@ -240,7 +240,7 @@ def _credenciales(interactivo: bool):
     if not interactivo:
         raise SystemExit(
             f"No hay autorizacion valida en {token.name}.\n"
-            "Corre una vez:  python -m src.gmail_ingesta --autorizar"
+            "Corre una vez:  python -m src.poller.gmail_ingesta --autorizar"
         )
     if not secreto.exists():
         raise SystemExit(
@@ -282,7 +282,7 @@ def diagnostico() -> int:
         print(f"  3. Descarga el JSON como {secreto.name} en la raiz del proyecto")
         return 1
     if not token.exists():
-        print("\nFalta autorizar:  python -m src.gmail_ingesta --autorizar")
+        print("\nFalta autorizar:  python -m src.poller.gmail_ingesta --autorizar")
         return 1
 
     try:
@@ -313,7 +313,7 @@ def diagnostico() -> int:
         print("  CARE_CORREO_DEMO vacio: todo correo saldra como NO IDENTIFICADA")
         print(f"  Ponla en .env con {perfil.get('emailAddress')} para ejercitar las validaciones.")
 
-    print("\nListo. Siguiente:  python -m src.gmail_ingesta --dry-run")
+    print("\nListo. Siguiente:  python -m src.poller.gmail_ingesta --dry-run")
     return 0
 
 
@@ -481,7 +481,7 @@ def main() -> None:
 
     if args.autorizar:
         cliente(interactivo=True)
-        print("[gmail] listo. Comprueba la conexion:  python -m src.gmail_ingesta --diagnostico")
+        print("[gmail] listo. Comprueba la conexion:  python -m src.poller.gmail_ingesta --diagnostico")
         return
 
     if args.diagnostico:

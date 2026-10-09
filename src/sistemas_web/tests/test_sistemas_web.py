@@ -8,9 +8,10 @@ en `sistemas.db`.
 import pytest
 from fastapi.testclient import TestClient
 
-from src import servicio, sistemas
+from src.agente import servicio
+from src.sistemas_web import sistemas
 from src.sistemas_web import app as consola
-from src.test_fase2 import _aprobado
+from src.agente.tests.test_fase2 import _aprobado
 
 
 @pytest.fixture

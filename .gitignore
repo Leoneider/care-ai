@@ -7,7 +7,7 @@ __pycache__/
 # Se respalda aparte, no como commits.
 feedback.jsonl
 
-# Bandeja, checkpoints del grafo y salida de src/feedback.py.
+# Bandeja, checkpoints del grafo y salida de src/agente/feedback.py.
 # data/care.db lleva correos de clientes y los casos en curso: se respalda,
 # no se versiona.
 data/

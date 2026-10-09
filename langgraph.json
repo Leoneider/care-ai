@@ -1,7 +1,7 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "care": "src.studio:grafo"
+    "care": "src.agente.studio:grafo"
   },
   "env": ".env"
 }

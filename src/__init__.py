@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # override=False: lo que ya este en el entorno real manda sobre el .env, para
-# que `CARE_FAKE_LLM=1 python -m src.demo` siga funcionando como antes.
+# que `CARE_FAKE_LLM=1 python -m src.agente.demo` siga funcionando como antes.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 
 os.environ.setdefault("LANGSMITH_PROJECT", "care-ai")

@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-RAIZ = Path(__file__).resolve().parent.parent
+RAIZ = Path(__file__).resolve().parents[2]
 RUTA_POR_DEFECTO = "data/care.db"
 
 # Tres estados, no dos. `reservado` es la fila que el poller crea ANTES de correr

@@ -31,7 +31,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .. import sistemas
+from . import sistemas
 
 PLANTILLAS = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 

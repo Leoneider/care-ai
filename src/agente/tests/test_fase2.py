@@ -11,10 +11,11 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 
-from src import backends, db, ejecucion, servicio, sistemas, validaciones
-from src.demo import CORREO
-from src.prompts import SISTEMA_POR_ACCION
-from src.schemas import RespuestaCliente
+from src.agente import backends, db, ejecucion, servicio, validaciones
+from src.sistemas_web import sistemas
+from src.agente.demo import CORREO
+from src.agente.prompts import SISTEMA_POR_ACCION
+from src.agente.schemas import RespuestaCliente
 from src.web.app import app
 
 
@@ -283,7 +284,7 @@ class GmailDoble:
 def test_al_cerrar_deja_la_respuesta_y_etiqueta_el_hilo(monkeypatch):
     svc = GmailDoble()
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
-    monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
+    monkeypatch.setattr("src.poller.gmail_ingesta.cliente", lambda *a, **k: svc)
 
     final = _aprobado("gm", thread_id="HILO-UFPSO")
 
@@ -298,7 +299,7 @@ def test_dejar_abierto_responde_pero_no_da_el_correo_por_terminado(monkeypatch):
     svc = GmailDoble()
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
     monkeypatch.setenv("CARE_TOPE_NOTA_CREDITO", "1")
-    monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
+    monkeypatch.setattr("src.poller.gmail_ingesta.cliente", lambda *a, **k: svc)
 
     final = _aprobado("ga", thread_id="HILO-2")
     cierre = servicio.cerrar(final["thread_id"], "dejar_abierto", "falta confirmar")
@@ -318,8 +319,8 @@ def test_la_respuesta_de_cierre_recibe_las_cifras_de_los_sistemas(monkeypatch):
             return RespuestaCliente(asunto="x", cuerpo="y")
 
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
-    monkeypatch.setattr("src.respuesta.get_structured_llm", lambda *a, **k: Redactor())
-    monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: GmailDoble())
+    monkeypatch.setattr("src.agente.respuesta.get_structured_llm", lambda *a, **k: Redactor())
+    monkeypatch.setattr("src.poller.gmail_ingesta.cliente", lambda *a, **k: GmailDoble())
 
     _aprobado("cf")
     texto = capturado[-1]

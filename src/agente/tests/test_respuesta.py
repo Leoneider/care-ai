@@ -12,9 +12,9 @@ import email.policy
 
 import pytest
 
-from src import respuesta, servicio
-from src.demo import CORREO
-from src.gmail_ingesta import crear_borrador
+from src.agente import respuesta, servicio
+from src.agente.demo import CORREO
+from src.poller.gmail_ingesta import crear_borrador
 
 
 # --------------------------------------------------------------------------- #
@@ -113,7 +113,7 @@ def test_en_fase_2_el_cierre_responde_aunque_no_haya_accion_de_correo(monkeypatc
     hizo: la respuesta de cierre sale siempre."""
     svc = FakeGmail()
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
-    monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
+    monkeypatch.setattr("src.poller.gmail_ingesta.cliente", lambda *a, **k: svc)
     res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-1@ufpso.edu.co>"))
     caso = servicio.detalle(res["thread_id"])["caso"]
     solo_sistemas = [a for s in caso["solicitudes"] for a in s["acciones"] if a["sistema"] != "CORREO"]
@@ -143,7 +143,7 @@ def test_apagado_por_defecto(monkeypatch):
 def test_aprobar_deja_el_borrador_redactado(monkeypatch):
     svc = FakeGmail()
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
-    monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
+    monkeypatch.setattr("src.poller.gmail_ingesta.cliente", lambda *a, **k: svc)
 
     res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-4@ufpso.edu.co>"))
     final = servicio.resolver(res["thread_id"], "aprobar", "ok")
@@ -154,7 +154,7 @@ def test_aprobar_deja_el_borrador_redactado(monkeypatch):
     assert svc.mensaje()["To"] == CORREO["remitente"]
 
 
-@pytest.mark.parametrize("donde", ["src.gmail_ingesta.cliente", "src.respuesta.redactar"])
+@pytest.mark.parametrize("donde", ["src.poller.gmail_ingesta.cliente", "src.agente.respuesta.redactar"])
 def test_un_fallo_con_gmail_no_tumba_la_decision(monkeypatch, donde):
     """El caso ya se resolvio y se registro. Un fallo aqui deja al ejecutivo sin
     borrador, no sin caso: si propagara, el thread quedaria cerrado en el grafo
@@ -180,7 +180,7 @@ def test_la_migracion_agrega_columnas_sin_perder_filas(tmp_path, monkeypatch):
     primera consulta muere con 'no such column: borrador_estado'."""
     import sqlite3
 
-    from src import db
+    from src.agente import db
 
     ruta = tmp_path / "vieja.db"
     monkeypatch.setenv("CARE_DB", str(ruta))
@@ -217,7 +217,7 @@ def test_el_borrador_creado_se_ve_en_el_caso_resuelto(monkeypatch):
 
     svc = FakeGmail()
     monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
-    monkeypatch.setattr("src.gmail_ingesta.cliente", lambda *a, **k: svc)
+    monkeypatch.setattr("src.poller.gmail_ingesta.cliente", lambda *a, **k: svc)
 
     res = servicio.procesar_correo(dict(CORREO, message_id="<rsp-ui@ufpso.edu.co>"))
     thread = res["thread_id"]

@@ -2,8 +2,8 @@
 
 from langgraph.types import Command
 
-from src.demo import CORREO
-from src.graph import construir_grafo
+from src.agente.demo import CORREO
+from src.agente.graph import construir_grafo
 
 
 def _correr(correo, decision, thread):

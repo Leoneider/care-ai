@@ -10,7 +10,7 @@
 
 Importa un feedback.jsonl existente a la BD.
 
-    python -m src.migrar_feedback [ruta.jsonl]
+    python -m src.agente.migrar_feedback [ruta.jsonl]
 
 Idempotente por (caso_id, creado_en) no: el JSONL no guarda fecha, asi que
 correrlo dos veces duplica. Se corre una vez y se archiva el .jsonl.

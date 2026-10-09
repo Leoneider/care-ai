@@ -137,7 +137,7 @@ function Iniciar-Poller {
     $token = Join-Path $Raiz 'token.json'
     if (-not (Test-Path $token)) {
         Escribir "  poller   -> omitido: falta token.json" Yellow
-        Escribir "              autoriza una vez:  .\.venv\Scripts\python.exe -m src.gmail_ingesta --autorizar" DarkGray
+        Escribir "              autoriza una vez:  .\.venv\Scripts\python.exe -m src.poller.gmail_ingesta --autorizar" DarkGray
         return $false
     }
     $log = Join-Path $DirLogs 'poller.log'
@@ -145,7 +145,7 @@ function Iniciar-Poller {
     # bloques de 8KB y el log se ve vacio durante un barrido tras otro. Parece que el
     # poller esta colgado cuando en realidad esta trabajando.
     $p = Start-Process -FilePath $Py `
-        -ArgumentList @('-u', '-m', 'src.gmail_ingesta', '--loop', $Intervalo) `
+        -ArgumentList @('-u', '-m', 'src.poller.gmail_ingesta', '--loop', $Intervalo) `
         -WorkingDirectory $Raiz -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $log -RedirectStandardError "$log.err"
     Anotar-Pid 'poller' $p.Id
@@ -191,7 +191,7 @@ function Mostrar-Estado {
 
     Escribir "`nBandeja" Cyan
     & $Py -c @"
-from src import servicio, db
+from src.agente import servicio, db
 r = servicio.resumen()
 print(f\"  {r['pendientes']} pendiente(s), {r['en_verificacion']} en verificacion, {r['resueltos']} resuelto(s)\")
 for c in servicio.listar(db.PENDIENTE)[:10] + servicio.listar(db.EN_VERIFICACION)[:10]:
@@ -293,11 +293,11 @@ Cuando lo tengas, vuelve a correr:  .\care.cmd gmail
             Escribir "`nAutorizando. Se abrira el navegador." Cyan
             Escribir "Si dice 'Google no ha verificado esta aplicacion', es tu propia app:" DarkGray
             Escribir "Configuracion avanzada -> Ir a (no seguro).`n" DarkGray
-            & $Py -m src.gmail_ingesta --autorizar
+            & $Py -m src.poller.gmail_ingesta --autorizar
             if (-not $?) { Escribir "La autorizacion fallo." Red; return }
         }
 
-        & $Py -m src.gmail_ingesta --diagnostico
+        & $Py -m src.poller.gmail_ingesta --diagnostico
     }
     'studio' {
         Confirmar-Entorno
@@ -332,24 +332,24 @@ Cuando lo tengas, vuelve a correr:  .\care.cmd gmail
     'demo' {
         Confirmar-Entorno
         $env:CARE_FAKE_LLM = '1'
-        & $Py -m src.demo --solo-ingesta
+        & $Py -m src.agente.demo --solo-ingesta
     }
     'limpiar' {
         Confirmar-Entorno
-        & $Py -c "from src import db; db.limpiar(); print('Bandeja vacia.')"
+        & $Py -c "from src.agente import db; db.limpiar(); print('Bandeja vacia.')"
     }
     'reiniciar' {
         # La demo desde cero: archiva los casos (no se reprocesan los correos viejos
         # del buzon) y devuelve los sistemas a la semilla.
         Confirmar-Entorno
         # Sin comillas dobles dentro del codigo: PowerShell 5.1 parte los \" al pasarlos a un exe.
-        & $Py -c "from src import servicio; r = servicio.reiniciar_demo(); print('Demo reiniciada: %d caso(s) archivado(s), sistemas en los datos iniciales.' % r['casos_archivados'])"
+        & $Py -c "from src.agente import servicio; r = servicio.reiniciar_demo(); print('Demo reiniciada: %d caso(s) archivado(s), sistemas en los datos iniciales.' % r['casos_archivados'])"
     }
     'restaurar' {
         # El mini sistema legado (CRM, facturacion, red, tickets) vuelve a la semilla
         # de la demo. No toca la bandeja: para eso esta 'limpiar'.
         Confirmar-Entorno
-        & $Py -c "from src import sistemas; sistemas.restaurar(); print('Sistemas restaurados a los datos de la demo.')"
+        & $Py -c "from src.sistemas_web import sistemas; sistemas.restaurar(); print('Sistemas restaurados a los datos de la demo.')"
     }
     default {
         Escribir @"

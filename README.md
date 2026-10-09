@@ -5,7 +5,7 @@
 Esqueleto funcional en LangGraph que va **desde el buzón de Gmail hasta la decisión del ejecutivo**, siguiendo el flujo del diagrama: Cliente → Care AI → Derivación → Ejecutivo Care.
 
 ```
-buzón Gmail ──▶ src.gmail_ingesta ──┐                  ┌──▶ src.web (bandeja, :8000)
+buzón Gmail ──▶ src.poller ─────────┐                  ┌──▶ src.web (bandeja, :8000)
                                      ▼                  │
                               ┌─── servicio.py ─────────┘
                               │   (tramo 1)      (tramo 2)
@@ -347,7 +347,7 @@ py -3.12 -m venv .venv && .venv/Scripts/activate   # o python3.12 -m venv en Uni
 pip install -r requirements.txt
 cp .env.example .env                     # y rellena lo que uses
 
-CARE_FAKE_LLM=1 python -m src.demo       # sin API key, respuestas simuladas
+CARE_FAKE_LLM=1 python -m src.agente.demo       # sin API key, respuestas simuladas
 pytest -q                                # 99 pruebas
 ```
 
@@ -355,7 +355,7 @@ Para ver el flujo real, con el humano de verdad en el medio — dos terminales:
 
 ```bash
 # 1) deja un caso esperando revisión
-CARE_FAKE_LLM=1 python -m src.demo --solo-ingesta
+CARE_FAKE_LLM=1 python -m src.agente.demo --solo-ingesta
 
 # 2) resuélvelo desde la bandeja
 python -m src.web                        # http://127.0.0.1:8000
@@ -395,7 +395,7 @@ Con modelo real:
 
 ```bash
 export ANTHROPIC_API_KEY=...
-python -m src.demo
+python -m src.agente.demo
 ```
 
 ## Las cinco decisiones que definen la POC
@@ -491,11 +491,11 @@ login y registrar **quién** decidió cada caso — hoy la columna no existe.
 ```
 
 ```bash
-python -m src.gmail_ingesta --autorizar     # una vez, abre el navegador
-python -m src.gmail_ingesta --diagnostico   # contra que buzon, y cuantos entrarian
-python -m src.gmail_ingesta --dry-run       # normaliza e imprime, no corre el grafo
-python -m src.gmail_ingesta                 # un barrido
-python -m src.gmail_ingesta --loop 60       # cada 60 s
+python -m src.poller.gmail_ingesta --autorizar     # una vez, abre el navegador
+python -m src.poller.gmail_ingesta --diagnostico   # contra que buzon, y cuantos entrarian
+python -m src.poller.gmail_ingesta --dry-run       # normaliza e imprime, no corre el grafo
+python -m src.poller.gmail_ingesta                 # un barrido
+python -m src.poller.gmail_ingesta --loop 60       # cada 60 s
 ```
 
 `--diagnostico` existe porque, sin el, el primer barrido real es a la vez la
@@ -604,7 +604,7 @@ LANGSMITH_API_KEY=lsv2_pt_...
 LANGSMITH_PROJECT=care-ai
 ```
 
-3. `python -m src.demo`. Al final de cada tramo se imprime el enlace a la traza.
+3. `python -m src.agente.demo`. Al final de cada tramo se imprime el enlace a la traza.
 
 En LangSmith cada nodo es un span anidado, con su entrada, su salida y su latencia.
 Las dos ramas del fan-out aparecen en paralelo y se ve cuál de las dos manda en el
@@ -650,7 +650,7 @@ La Fase 1 terminaba en la decisión del ejecutivo y marcaba cada acción como
 un mini sistema legado, **se verifica** releyendo ese sistema y el caso **se
 cierra solo** si no hay riesgo.
 
-**El mini sistema** (`src/sistemas.py`, base `data/sistemas.db`) reemplaza los
+**El mini sistema** (`src/sistemas_web/sistemas.py`, base `data/sistemas.db`) reemplaza los
 diccionarios de `backends.py`: CRM, facturación, contratos, red y mesa de
 servicio, con una bitácora de cada escritura (antes y después). Se defiende solo
 como uno real: rechaza un upgrade que no cabe en el nodo o una nota crédito mayor
@@ -726,7 +726,7 @@ pantallas; el agente no los muestra, los usa. Separarlos en la POC hace que la
 demo cuente eso: se aprueba un caso en Care AI y se ve el efecto en *otra*
 aplicación, con otra identidad visual, sin que una sepa de la otra. También deja
 claro qué hay que reemplazar para ir a producción: `src/sistemas_web/` y
-`src/sistemas.py` desaparecen, y `backends.py` pasa a hablar con los sistemas
+`src/sistemas_web/sistemas.py` desaparecen, y `backends.py` pasa a hablar con los sistemas
 reales.
 
 Reglas que sostienen la separación:
@@ -749,31 +749,31 @@ Reglas que sostienen la separación:
 
 | Archivo | Rol |
 |---|---|
-| `src/graph.py` | Topología, fan-out y compilación con checkpointer |
-| `src/state.py` | `CareState` (global) y `SolicitudState` (rama paralela) |
-| `src/nodes.py` | Los 10 nodos, incluidos los dos `interrupt` |
-| `src/schemas.py` | Contratos Pydantic de las salidas del modelo |
-| `src/validaciones.py` | Chequeos deterministas por tipo |
-| `src/prompts.py` | Prompts + catálogo de acciones y datos requeridos |
-| `src/backends.py` | La costura con los sistemas: lectura y, en Fase 2, escritura |
-| **`src/sistemas.py`** | **Mini sistema legado: CRM, facturación, contratos, red y tickets, con bitácora** |
-| **`src/ejecucion.py`** | **Fase 2: herramienta por código, verificación y regla de cierre** |
-| `src/fakes.py` | Respuestas canned para correr sin API key |
-| `src/demo.py` | Corrida end-to-end con el correo del enunciado |
-| `src/tracing.py` | Run raíz nombrado en LangSmith + enlace a la traza |
+| `src/agente/graph.py` | Topología, fan-out y compilación con checkpointer |
+| `src/agente/state.py` | `CareState` (global) y `SolicitudState` (rama paralela) |
+| `src/agente/nodes.py` | Los 10 nodos, incluidos los dos `interrupt` |
+| `src/agente/schemas.py` | Contratos Pydantic de las salidas del modelo |
+| `src/agente/validaciones.py` | Chequeos deterministas por tipo |
+| `src/agente/prompts.py` | Prompts + catálogo de acciones y datos requeridos |
+| `src/agente/backends.py` | La costura con los sistemas: lectura y, en Fase 2, escritura |
+| **`src/sistemas_web/sistemas.py`** | **Mini sistema legado: CRM, facturación, contratos, red y tickets, con bitácora** |
+| **`src/agente/ejecucion.py`** | **Fase 2: herramienta por código, verificación y regla de cierre** |
+| `src/agente/fakes.py` | Respuestas canned para correr sin API key |
+| `src/agente/demo.py` | Corrida end-to-end con el correo del enunciado |
+| `src/agente/tracing.py` | Run raíz nombrado en LangSmith + enlace a la traza |
 | `src/__init__.py` | Carga del `.env` y guarda de la config de tracing |
-| **`src/servicio.py`** | **Capa de aplicación: lo único que la UI y el poller conocen del grafo** |
-| **`src/db.py`** | **Bandeja de casos e idempotencia en SQLite** |
-| **`src/gmail_ingesta.py`** | **Buzón de Gmail → `CorreoEntrante`, con OAuth y barrido** |
+| **`src/agente/servicio.py`** | **Capa de aplicación: lo único que la UI y el poller conocen del grafo** |
+| **`src/agente/db.py`** | **Bandeja de casos e idempotencia en SQLite** |
+| **`src/poller/gmail_ingesta.py`** | **Buzón de Gmail → `CorreoEntrante`, con OAuth y barrido** |
 | **`src/web/app.py`** | **UI del ejecutivo: bandeja, detalle, aprobar / editar / rechazar** |
-| **`src/respuesta.py`** | **Redacta el borrador de respuesta al cliente** |
+| **`src/agente/respuesta.py`** | **Redacta el borrador de respuesta al cliente** |
 | **`src/web/templates/`** | **`base.html`, `bandeja.html`, `caso.html`** |
 | **`src/sistemas_web/`** | **Consola del sistema legado, app aparte en `:8002` (ver "El agente y los sistemas son dos componentes")** |
 | `conftest.py` | Aísla las pruebas: BD temporal, checkpointer en RAM, modo fake |
 | `care.cmd` + `scripts/care.ps1` | Arranque local: levanta, para y reporta la bandeja, la consola de sistemas y el poller |
-| `src/feedback.py` | ⏸ Persistencia en BD. Escrito pero **sin conectar** al grafo |
-| `src/metricas.py` | ⏸ Métricas de Fase 2 como consultas. Depende de `feedback.py` |
-| `src/migrar_feedback.py` | ⏸ Importa el `feedback.jsonl` a la BD cuando se retome |
+| `src/agente/feedback.py` | ⏸ Persistencia en BD. Escrito pero **sin conectar** al grafo |
+| `src/agente/metricas.py` | ⏸ Métricas de Fase 2 como consultas. Depende de `feedback.py` |
+| `src/agente/migrar_feedback.py` | ⏸ Importa el `feedback.jsonl` a la BD cuando se retome |
 
 Las pruebas (99) van por pieza: `test_grafo.py` la topología, `test_servicio.py`
 la costura entre procesos, `test_gmail.py` la normalización MIME sin red,
@@ -784,7 +784,7 @@ sistema legado y su independencia de la bandeja.
 
 ## Por dónde seguir, en orden
 
-~~1. **Un buzón real.**~~ Hecho: `src/gmail_ingesta.py`, API de Gmail con OAuth.
+~~1. **Un buzón real.**~~ Hecho: `src/poller/gmail_ingesta.py`, API de Gmail con OAuth.
 El `message_id` sigue siendo la clave de idempotencia.
 
 ~~4. **La UI del ejecutivo.**~~ Hecho: `src/web/`, con la edición guardando las
@@ -810,8 +810,8 @@ acciones finales y no solo la decisión.
 6. **Observabilidad.** Ya cableada (ver arriba). Lo que falta es usarla: con el
    modelo real, mirar en qué nodo se va la latencia y qué prompt falló.
 
-7. **Mover el feedback a una BD.** `src/feedback.py`, `src/metricas.py` y
-   `src/migrar_feedback.py` ya están escritos (SQLite, sin infraestructura) pero
+7. **Mover el feedback a una BD.** `src/agente/feedback.py`, `src/agente/metricas.py` y
+   `src/agente/migrar_feedback.py` ya están escritos (SQLite, sin infraestructura) pero
    **siguen sin conectarse**: `aplicar_decision` escribe el `.jsonl`. Conectarlos
    son dos líneas en `nodes.py`; queda pendiente decidir el momento, y la decisión
    no se tomó al agregar la UI. Lo que sí se arregló son los dos problemas del

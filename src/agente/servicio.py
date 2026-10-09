@@ -46,7 +46,7 @@ def reiniciar_demo() -> dict[str, int]:
     Los casos se archivan, no se borran (ver `db.ARCHIVADO`): un correo que ya se
     proceso no vuelve a entrar. Para repetir la demo se manda un correo nuevo.
     """
-    from . import sistemas
+    from ..sistemas_web import sistemas
 
     archivados = vaciar_bandeja()
     sistemas.restaurar()
@@ -325,7 +325,7 @@ def _borrador_al_cliente(thread_id: str, final: dict[str, Any]) -> tuple[dict[st
                              inputs={"caso_id": caso.get("caso_id", ""), "acciones": acciones}) as run:
             texto = respuesta.redactar(caso, acciones, correo.get("cuerpo", ""), resultado=resultado)
             run.end(outputs={"asunto": texto.asunto, "cuerpo": texto.cuerpo})
-        from . import gmail_ingesta
+        from ..poller import gmail_ingesta
 
         svc = gmail_ingesta.cliente()
         creado = gmail_ingesta.crear_borrador(svc, correo, texto.asunto, texto.cuerpo)

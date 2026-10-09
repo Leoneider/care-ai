@@ -29,7 +29,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-RAIZ = Path(__file__).resolve().parent.parent
+RAIZ = Path(__file__).resolve().parents[2]
 RUTA_POR_DEFECTO = "data/sistemas.db"
 
 # Estados de ticket que cuentan como "abierto" para la mesa de servicio.

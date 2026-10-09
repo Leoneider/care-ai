@@ -8,7 +8,7 @@ porque no hay nada nuestro que probar en el.
 
 import base64
 
-from src.gmail_ingesta import a_correo, cuerpo_y_adjuntos, es_propio, html_a_texto
+from src.poller.gmail_ingesta import a_correo, cuerpo_y_adjuntos, es_propio, html_a_texto
 
 
 def _b64(texto: str, juego: str = "utf-8") -> str:
@@ -124,7 +124,7 @@ def test_remitente_igual_al_buzon_es_propio_aunque_falte_la_etiqueta():
 def test_correo_de_gmail_atraviesa_el_grafo():
     """La prueba que une las dos mitades: lo que produce `a_correo` es lo que
     `servicio.procesar_correo` sabe consumir."""
-    from src import servicio
+    from src.agente import servicio
 
     msg = _mensaje({
         "mimeType": "text/plain",

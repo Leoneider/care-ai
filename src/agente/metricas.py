@@ -10,7 +10,7 @@
 
 Las metricas del README, como consultas SQL.
 
-    python -m src.metricas
+    python -m src.agente.metricas
 
 Este modulo es la razon de mover el feedback a una BD. Con el JSONL habia que
 leer el archivo entero a RAM y recorrerlo en Python para cada cifra; aqui cada

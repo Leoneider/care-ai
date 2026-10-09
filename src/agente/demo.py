@@ -1,9 +1,9 @@
 """Demo end-to-end: correo -> caso -> pausa -> decision del ejecutivo -> ejecucion.
 
-    CARE_FAKE_LLM=1 python -m src.demo                  # sin API key
-    ANTHROPIC_API_KEY=... python -m src.demo
-    python -m src.demo --solo-ingesta                   # deja el caso para la UI
-    python -m src.demo --reiniciar                      # olvida el correo de ejemplo
+    CARE_FAKE_LLM=1 python -m src.agente.demo                  # sin API key
+    ANTHROPIC_API_KEY=... python -m src.agente.demo
+    python -m src.agente.demo --solo-ingesta                   # deja el caso para la UI
+    python -m src.agente.demo --reiniciar                      # olvida el correo de ejemplo
 
 Con `--solo-ingesta` el demo se detiene en el `interrupt` y no decide nada: el
 caso queda en la bandeja para que lo resuelvas desde `python -m src.web`. Es la
@@ -89,7 +89,7 @@ def main() -> None:
     if res["estado"] != "pendiente":
         print(f"\nEl grafo no dejo caso para revisar (estado: {res['estado']}).")
         if res["estado"] == "duplicado":
-            print("Este correo ya se proceso. Para repetir el demo:  python -m src.demo --reiniciar")
+            print("Este correo ya se proceso. Para repetir el demo:  python -m src.agente.demo --reiniciar")
         return
 
     imprimir_caso(res["caso"])
