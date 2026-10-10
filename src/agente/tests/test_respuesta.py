@@ -13,7 +13,7 @@ import email.policy
 import pytest
 
 from src.agente import respuesta, servicio
-from src.agente.demo import CORREO
+from src.agente.fakes import CORREO_EJEMPLO as CORREO
 from src.poller.gmail_ingesta import crear_borrador
 
 

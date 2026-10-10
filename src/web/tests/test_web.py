@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.agente import db, servicio
-from src.agente.demo import CORREO
+from src.agente.fakes import CORREO_EJEMPLO as CORREO
 from src.web.app import app, bloqueantes_de
 
 

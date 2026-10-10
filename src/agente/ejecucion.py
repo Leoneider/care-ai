@@ -180,6 +180,23 @@ def _pedir_dato(ctx: Contexto) -> dict[str, Any]:
     return _res(PENDIENTE_CLIENTE, f"Se le pide al cliente: {faltan}. Va en la respuesta de cierre.")
 
 
+def _responder_plantilla(ctx: Contexto) -> dict[str, Any]:
+    """Responder una consulta es leer los sistemas y contarselo al cliente.
+
+    Vuelve a correr las validaciones del tipo en el momento de ejecutar, no las
+    que quedaron en la tarjeta: entre la revision y la aprobacion pueden haber
+    pasado dias y el plan puede haber cambiado. Lo consultado va al ticket y a la
+    respuesta de cierre con las cifras tal cual salen del CRM y de contratos.
+    """
+    checks = validaciones.validar(ctx.solicitud.get("tipo", ""), ctx.cliente, ctx.solicitud.get("datos", {}))
+    # `ticket_abierto` es para el ejecutivo, no para el cliente; ademas al ejecutar
+    # ya existe el ticket de seguimiento de este mismo caso y siempre saltaria.
+    consultado = [c.detalle for c in checks if c.check not in ("sin_validador", "ticket_abierto")]
+    if not consultado:
+        return _res(MANUAL, "Sin datos de los sistemas para este tipo de consulta: la respuesta la redacta el ejecutivo.")
+    return _res(CONSULTADA, "Se responde al cliente con lo consultado. " + " ".join(consultado))
+
+
 HERRAMIENTAS: dict[str, Callable[[Contexto], dict[str, Any]]] = {
     "VERIFICAR_FACTIBILIDAD_TECNICA": _factibilidad,
     "APLICAR_UPGRADE_ANCHO_BANDA": _upgrade,
@@ -188,6 +205,7 @@ HERRAMIENTAS: dict[str, Callable[[Contexto], dict[str, Any]]] = {
     "SOLICITAR_NOTA_CREDITO": _nota_credito,
     "ASOCIAR_A_TICKET_EXISTENTE": _asociar_ticket,
     "SOLICITAR_DATO_FALTANTE": _pedir_dato,
+    "RESPONDER_CON_PLANTILLA": _responder_plantilla,
     "ESCALAR_A_INGENIERIA": _derivar("Ingenieria"),
     "ESCALAR_A_FACTURACION": _derivar("Facturacion"),
     "ESCALAR_A_NOC": _derivar("NOC"),

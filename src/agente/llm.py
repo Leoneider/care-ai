@@ -2,7 +2,7 @@
 
 `CARE_FAKE_LLM=1` devuelve respuestas canned. Sirve para:
 - probar la topologia del grafo y el human-in-the-loop en CI,
-- que un dev nuevo clone y corra `python -m src.agente.demo` sin credenciales.
+- que un dev nuevo clone y corra `pytest` sin credenciales.
 """
 
 import os

@@ -1,6 +1,6 @@
 """Capa de aplicacion: lo unico que la UI y el poller de Gmail conocen del grafo.
 
-`demo.py` hacia los dos tramos seguidos en la misma funcion. Eso ya no aplica: el
+La demo original hacia los dos tramos seguidos en la misma funcion. Eso ya no aplica: el
 tramo 1 lo dispara el poller y el tramo 2 la UI, minutos u horas despues y desde
 otro proceso. Lo que los une es el `thread_id` y el checkpointer.
 

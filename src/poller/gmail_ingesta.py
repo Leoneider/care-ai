@@ -1,6 +1,6 @@
 """Ingesta real del buzon de Gmail.
 
-Reemplaza el `CORREO` hardcodeado de `demo.py` por el buzon de verdad. Cada
+Es la unica puerta de entrada de casos: no hay correo de ejemplo sembrado. Cada
 mensaje se normaliza a un `CorreoEntrante` (ver `state.py`) y se entrega a
 `servicio.procesar_correo`, que corre el grafo hasta el `interrupt` y deja el
 caso en la bandeja.

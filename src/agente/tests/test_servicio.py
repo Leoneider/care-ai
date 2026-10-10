@@ -8,7 +8,7 @@ que la idempotencia aguante barridos repetidos.
 import pytest
 
 from src.agente import db, servicio
-from src.agente.demo import CORREO
+from src.agente.fakes import CORREO_EJEMPLO as CORREO
 
 
 def _otro_correo(sufijo: str, **campos):

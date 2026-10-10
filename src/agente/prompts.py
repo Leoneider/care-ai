@@ -135,6 +135,8 @@ Reglas estrictas:
 - Informa solo lo que aparece como hecho, con las cifras exactas que se te dan
   (Mbps, valores en COP, número de nota crédito o de ticket). No redondees ni
   agregues datos que no estén en lo entregado.
+- Si el cliente preguntó algo (su plan, un valor), respóndelo con lo que aparece
+  como consultado: servicios, sedes, Mbps, contrato y valor mensual, tal cual.
 - Lo que quedó en curso dilo como en curso, sin plazos ni promesas.
 - Si faltan datos, pídelos nombrándolos.
 - Si todo quedó hecho, deja claro que la solicitud queda resuelta.

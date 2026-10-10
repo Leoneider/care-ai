@@ -11,9 +11,8 @@
 #     ./care gmail       conecta con Google: guia, autoriza y comprueba
 #     ./care estado      que corre y que hay en la bandeja
 #     ./care stop        para todo
-#     ./care demo        siembra el correo de ejemplo (sin API key)
 #     ./care limpiar     vacia la bandeja
-#     ./care reiniciar   demo desde cero: bandeja vacia y sistemas en la semilla
+#     ./care reiniciar   desde cero: bandeja vacia y sistemas en la semilla
 #     ./care restaurar   devuelve el mini sistema (CRM, facturacion, red) a la semilla
 #
 # Mismas razones que el .ps1: usa siempre el python del venv (y lo crea si falta)
@@ -226,9 +225,8 @@ Care AI - arranque local
   ./care studio      el grafo en LangGraph Studio -> http://127.0.0.1:$PUERTO_STUDIO
   ./care estado      que corre y que hay en la bandeja
   ./care stop        para todo
-  ./care demo        siembra el correo de ejemplo (sin API key)
   ./care limpiar     vacia la bandeja
-  ./care reiniciar   demo desde cero: bandeja vacia y sistemas en la semilla
+  ./care reiniciar   desde cero: bandeja vacia y sistemas en la semilla
   ./care restaurar   devuelve el mini sistema (CRM, facturacion, red) a la semilla
 
 Opciones (variables de entorno):  PUERTO=8000  PUERTO_SISTEMAS=8002  INTERVALO=60  PUERTO_STUDIO=2024
@@ -336,10 +334,6 @@ Cuando lo tengas, vuelve a correr:  ./care gmail
         ;;
     estado)   confirmar_entorno; mostrar_estado ;;
     stop)     detener_todo ;;
-    demo)
-        confirmar_entorno
-        ( cd "$RAIZ" && CARE_FAKE_LLM=1 "$PY" -m src.agente.demo --solo-ingesta )
-        ;;
     limpiar)
         confirmar_entorno
         ( cd "$RAIZ" && "$PY" -c "from src.agente import db; db.limpiar(); print('Bandeja vacia.')" )

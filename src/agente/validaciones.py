@@ -254,9 +254,79 @@ def _validar_facturacion(cliente: dict, datos: dict[str, str]) -> list[Validacio
     return out
 
 
+def _validar_consulta(cliente: dict, datos: dict[str, str]) -> list[Validacion]:
+    """Consulta general: no hay nada que cambiar, pero si algo que responder.
+
+    El cliente pregunta por "su plan": lo que tiene contratado. Eso no lo sabe el
+    modelo, lo saben el CRM y contratos. Se lee aqui, con las cifras exactas, para
+    que el ejecutivo lo vea en la tarjeta y para que la respuesta de cierre las
+    reciba de los sistemas y no las invente.
+    """
+    out: list[Validacion] = []
+    cuenta = cliente.get("cuenta_id", "")
+    servicios = cliente.get("servicios", [])
+
+    if servicios:
+        lineas = "; ".join(
+            f"{s['servicio_id']} {s['producto']} {s['ancho_banda_mbps']} Mbps en {s['sede']}"
+            for s in servicios
+        )
+        out.append(
+            Validacion(
+                check="plan_consultado",
+                resultado="ok",
+                detalle=f"Plan actual ({len(servicios)} servicio(s)): {lineas}.",
+            )
+        )
+    else:
+        out.append(
+            Validacion(
+                check="plan_consultado",
+                resultado="alerta",
+                detalle="La cuenta no tiene servicios registrados en el CRM.",
+            )
+        )
+
+    contrato = backends.contratos_obtener(cuenta) if cuenta else {}
+    if not contrato:
+        out.append(
+            Validacion(
+                check="contrato_vigente",
+                resultado="alerta",
+                detalle="No hay contrato registrado para la cuenta.",
+            )
+        )
+    else:
+        vigente = str(contrato.get("vigencia_hasta", "")) >= date.today().isoformat()
+        out.append(
+            Validacion(
+                check="contrato_vigente",
+                resultado="ok" if vigente else "alerta",
+                detalle=f"Contrato {contrato['contrato']} "
+                + ("vigente hasta" if vigente else "VENCIDO desde")
+                + f" {contrato['vigencia_hasta']}: {contrato['valor_mensual_pactado']:,} COP mensuales, "
+                f"permanencia {contrato.get('clausula_permanencia_meses', '-')} meses, "
+                + ("permite upgrade sin adendum." if contrato.get("permite_upgrade_sin_adendum") else "upgrade con adendum."),
+            )
+        )
+
+    abiertos = backends.tickets_abiertos(cuenta) if cuenta else []
+    if abiertos:
+        out.append(
+            Validacion(
+                check="ticket_abierto",
+                resultado="alerta",
+                detalle=f"La cuenta ya tiene {abiertos[0]['ticket']} abierto ({abiertos[0]['tema']}). "
+                "Tenerlo en cuenta al responder.",
+            )
+        )
+    return out
+
+
 VALIDADORES: dict[str, Callable[[dict, dict[str, str]], list[Validacion]]] = {
     "ampliacion_ancho_banda": _validar_ampliacion,
     "facturacion_inconsistencia": _validar_facturacion,
+    "consulta_general": _validar_consulta,
 }
 
 

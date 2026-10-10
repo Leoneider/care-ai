@@ -176,9 +176,15 @@ SOLICITAR_NOTA_CREDITO  (+ ASOCIAR_A_TICKET_EXISTENTE si ya había uno abierto)
 
 #### 4C. Los demás tipos
 
-Falla técnica, baja de servicio, cambio de contacto, consulta general y otro **no
-tienen procedimiento de verificación automático** en la POC. Se marcan con la
-alerta *"sin validador: revisión manual completa"* y el ejecutivo los revisa enteros.
+**Consulta general** no tiene nada que cambiar, pero sí algo que responder: el
+copiloto lee el plan actual de la cuenta (servicios, sedes y Mbps en el CRM) y el
+contrato (vigencia, valor mensual pactado, permanencia) y lo deja en la tarjeta
+como `plan_consultado` y `contrato_vigente`. Si hay un ticket abierto de la cuenta
+lo señala como alerta (`ticket_abierto`). Ninguna de esas validaciones bloquea.
+
+Falla técnica, baja de servicio, cambio de contacto y otro **no tienen
+procedimiento de verificación automático** en la POC. Se marcan con la alerta
+*"sin validador: revisión manual completa"* y el ejecutivo los revisa enteros.
 
 ---
 
@@ -245,7 +251,8 @@ procedimiento lo recalcula.
 | **Cotizar upgrade** | Revisa el contrato: si permite upgrade sin adendum, no hace falta cotizar | Si exige adendum, queda para el ejecutivo | Consultada / manual |
 | **Escalar / derivar** | Abre un ticket nuevo para el equipo responsable | — | Derivada |
 | **Solicitar dato faltante** | Registra qué datos faltan para incluirlos en la respuesta al cliente | — | Pendiente del cliente |
-| Actualizar contacto, Consultar estado de red, Verificar permanencia, Responder con plantilla | Sin procedimiento automático en la POC | — | Manual (la hace el ejecutivo) |
+| **Responder con plantilla** | Relee el plan y el contrato de la cuenta en el momento de ejecutar y lo deja en el ticket; la respuesta de cierre se redacta con esas cifras | Si el tipo no tiene datos que consultar, queda para el ejecutivo | Consultada / manual |
+| Actualizar contacto, Consultar estado de red, Verificar permanencia | Sin procedimiento automático en la POC | — | Manual (la hace el ejecutivo) |
 
 **A qué equipo va cada derivación:**
 
@@ -347,15 +354,17 @@ py -3.12 -m venv .venv && .venv/Scripts/activate   # o python3.12 -m venv en Uni
 pip install -r requirements.txt
 cp .env.example .env                     # y rellena lo que uses
 
-CARE_FAKE_LLM=1 python -m src.agente.demo       # sin API key, respuestas simuladas
-pytest -q                                # 99 pruebas
+pytest -q                                # sin API key, respuestas simuladas
 ```
 
-Para ver el flujo real, con el humano de verdad en el medio — dos terminales:
+No hay correo de ejemplo sembrado: los casos entran solo por el poller de Gmail
+(ver *La ingesta del buzón*). Para ver el flujo, con el humano de verdad en el
+medio — dos terminales:
 
 ```bash
-# 1) deja un caso esperando revisión
-CARE_FAKE_LLM=1 python -m src.agente.demo --solo-ingesta
+# 1) deja un caso esperando revisión: manda un correo con CARE-TEST en el asunto
+#    al buzón autorizado y haz un barrido
+python -m src.poller.gmail_ingesta
 
 # 2) resuélvelo desde la bandeja
 python -m src.web                        # http://127.0.0.1:8000
@@ -384,8 +393,7 @@ En macOS / Linux, los mismos comandos con `./care` (envoltorio de `scripts/care.
 PUERTO=8080 ./care ui  # los puertos e intervalo se cambian por variables de entorno
 ```
 
-`care.cmd demo` siembra el correo de ejemplo sin API key, y `care.cmd limpiar`
-vacía la bandeja.
+`care.cmd limpiar` vacía la bandeja.
 
 El script existe por dos tropiezos que cuestan un rato la primera vez:
 
@@ -406,7 +414,7 @@ Con modelo real:
 
 ```bash
 export ANTHROPIC_API_KEY=...
-python -m src.agente.demo
+python -m src.poller.gmail_ingesta
 ```
 
 ## Las cinco decisiones que definen la POC
@@ -582,7 +590,7 @@ fecha, el borrador no la pide.
 ## Partirlo en dos procesos: lo que hubo que cambiar
 
 El punto 5 de arriba decía que el humano es el final del grafo. Mientras todo
-corría dentro de `demo.py` eso era una promesa; con la UI y el poller separados
+corría en un solo proceso eso era una promesa; con la UI y el poller separados
 hubo que pagarla:
 
 - **`InMemorySaver` → `SqliteSaver`.** Un `interrupt` guardado en RAM no
@@ -615,7 +623,7 @@ LANGSMITH_API_KEY=lsv2_pt_...
 LANGSMITH_PROJECT=care-ai
 ```
 
-3. `python -m src.agente.demo`. Al final de cada tramo se imprime el enlace a la traza.
+3. Haz un barrido con `python -m src.poller.gmail_ingesta` y abre el proyecto en LangSmith.
 
 En LangSmith cada nodo es un span anidado, con su entrada, su salida y su latencia.
 Las dos ramas del fan-out aparecen en paralelo y se ve cuál de las dos manda en el
@@ -769,8 +777,7 @@ Reglas que sostienen la separación:
 | `src/agente/backends.py` | La costura con los sistemas: lectura y, en Fase 2, escritura |
 | **`src/sistemas_web/sistemas.py`** | **Mini sistema legado: CRM, facturación, contratos, red y tickets, con bitácora** |
 | **`src/agente/ejecucion.py`** | **Fase 2: herramienta por código, verificación y regla de cierre** |
-| `src/agente/fakes.py` | Respuestas canned para correr sin API key |
-| `src/agente/demo.py` | Corrida end-to-end con el correo del enunciado |
+| `src/agente/fakes.py` | Respuestas canned y el correo de ejemplo, solo para las pruebas |
 | `src/agente/tracing.py` | Run raíz nombrado en LangSmith + enlace a la traza |
 | `src/__init__.py` | Carga del `.env` y guarda de la config de tracing |
 | **`src/agente/servicio.py`** | **Capa de aplicación: lo único que la UI y el poller conocen del grafo** |

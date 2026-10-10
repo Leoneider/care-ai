@@ -9,9 +9,8 @@
         .\care.cmd studio      el grafo en LangGraph Studio (langgraph dev)
         .\care.cmd estado      que corre y que hay en la bandeja
         .\care.cmd stop        para todo
-        .\care.cmd demo        siembra el correo de ejemplo
         .\care.cmd limpiar     vacia la bandeja
-  .\care.cmd reiniciar   demo desde cero: bandeja vacia y sistemas en la semilla
+  .\care.cmd reiniciar   desde cero: bandeja vacia y sistemas en la semilla
   .\care.cmd restaurar   devuelve el mini sistema (CRM, facturacion, red) a la semilla
 
     Existe por dos tropiezos reales, no por gusto:
@@ -28,7 +27,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'ui', 'sistemas', 'ventana', 'poller', 'studio', 'gmail', 'estado', 'stop', 'demo', 'limpiar', 'restaurar', 'reiniciar', 'ayuda')]
+    [ValidateSet('up', 'ui', 'sistemas', 'ventana', 'poller', 'studio', 'gmail', 'estado', 'stop', 'limpiar', 'restaurar', 'reiniciar', 'ayuda')]
     [string]$Comando = 'ayuda',
 
     [int]$Puerto = 8000,
@@ -329,11 +328,6 @@ Cuando lo tengas, vuelve a correr:  .\care.cmd gmail
     }
     'estado' { Confirmar-Entorno; Mostrar-Estado }
     'stop' { Detener-Todo }
-    'demo' {
-        Confirmar-Entorno
-        $env:CARE_FAKE_LLM = '1'
-        & $Py -m src.agente.demo --solo-ingesta
-    }
     'limpiar' {
         Confirmar-Entorno
         & $Py -c "from src.agente import db; db.limpiar(); print('Bandeja vacia.')"
@@ -365,9 +359,8 @@ Care AI - arranque local
   .\care.cmd studio      el grafo en LangGraph Studio -> http://127.0.0.1:$PuertoStudio
   .\care.cmd estado      que corre y que hay en la bandeja
   .\care.cmd stop        para todo
-  .\care.cmd demo        siembra el correo de ejemplo (sin API key)
   .\care.cmd limpiar     vacia la bandeja
-  .\care.cmd reiniciar   demo desde cero: bandeja vacia y sistemas en la semilla
+  .\care.cmd reiniciar   desde cero: bandeja vacia y sistemas en la semilla
   .\care.cmd restaurar   devuelve el mini sistema (CRM, facturacion, red) a la semilla
 
 Opciones:  -Puerto 8000   -PuertoSistemas 8002   -Intervalo 60   -PuertoStudio 2024

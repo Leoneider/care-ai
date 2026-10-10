@@ -2,7 +2,7 @@
 
 from langgraph.types import Command
 
-from src.agente.demo import CORREO
+from src.agente.fakes import CORREO_EJEMPLO as CORREO
 from src.agente.graph import construir_grafo
 
 

@@ -1,7 +1,7 @@
 """Bandeja de casos e idempotencia, en SQLite.
 
 Este modulo aparece porque la UI y el poller de Gmail son procesos distintos.
-Mientras todo corria dentro de `demo.py` bastaba con estado en memoria; en cuanto
+Mientras todo corria en un solo proceso bastaba con estado en memoria; en cuanto
 el correo entra por un lado y el ejecutivo decide por otro, hacen falta dos cosas
 persistidas:
 

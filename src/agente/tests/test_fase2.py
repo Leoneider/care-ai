@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from src.agente import backends, db, ejecucion, servicio, validaciones
 from src.sistemas_web import sistemas
-from src.agente.demo import CORREO
+from src.agente.fakes import CORREO_CONSULTA, CORREO_EJEMPLO as CORREO
 from src.agente.prompts import SISTEMA_POR_ACCION
 from src.agente.schemas import RespuestaCliente
 from src.web.app import app
@@ -327,6 +327,70 @@ def test_la_respuesta_de_cierre_recibe_las_cifras_de_los_sistemas(monkeypatch):
     assert "200 -> 500 Mbps" in texto
     assert "950,000 COP" in texto
     assert "Estado del caso: cerrado" in texto
+
+
+# --------------------------------------------------------------------------- #
+# Consulta general: leer el plan y responderlo
+# --------------------------------------------------------------------------- #
+def test_una_consulta_del_plan_se_lee_del_crm_y_de_contratos():
+    """Antes caia en 'sin_validador: revision manual completa' y el ejecutivo
+    tenia que ir a buscar el plan a mano."""
+    res = servicio.procesar_correo(dict(CORREO_CONSULTA))
+    sol = servicio.detalle(res["thread_id"])["caso"]["solicitudes"][0]
+    assert sol["tipo"] == "consulta_general"
+    checks = {v["check"]: v for v in sol["validaciones"]}
+
+    assert "sin_validador" not in checks
+    assert checks["plan_consultado"]["resultado"] == "ok"
+    assert "SVC-9310 Internet Dedicado 200 Mbps en Bogota - Sede Chapinero" in checks["plan_consultado"]["detalle"]
+    assert checks["contrato_vigente"]["resultado"] == "ok"
+    assert "CTO-3107" in checks["contrato_vigente"]["detalle"]
+    assert "6,200,000 COP" in checks["contrato_vigente"]["detalle"]
+    assert sol["requiere_atencion"] is False
+
+
+def test_un_contrato_vencido_o_un_ticket_abierto_salen_como_alerta():
+    sistemas.crear_ticket("B2B-005130", "facturacion", "reclamo previo", estado="abierto")
+    cliente = backends.crm_buscar_cuenta_por_correo("ltrigosg@ufpso.edu.co")
+    with sistemas.conexion() as con:
+        con.execute("UPDATE contrato SET vigencia_hasta = '2020-01-31' WHERE cuenta_id = 'B2B-005130'")
+
+    checks = {v.check: v for v in validaciones.validar("consulta_general", cliente, {})}
+    assert checks["contrato_vigente"].resultado == "alerta"
+    assert "VENCIDO" in checks["contrato_vigente"].detalle
+    assert checks["ticket_abierto"].resultado == "alerta"
+    assert not any(v.bloqueante for v in checks.values())
+
+
+def test_responder_la_consulta_lleva_el_plan_a_la_respuesta_y_cierra_solo(monkeypatch):
+    """RESPONDER_CON_PLANTILLA deja de ser 'manual': consulta los sistemas y lo
+    consultado entra al prompt de la respuesta de cierre con las cifras exactas."""
+    capturado: list = []
+
+    class Redactor:
+        def invoke(self, mensajes):
+            capturado.append(mensajes[-1]["content"])
+            return RespuestaCliente(asunto="x", cuerpo="y")
+
+    monkeypatch.setenv("CARE_BORRADOR_GMAIL", "1")
+    monkeypatch.setattr("src.agente.respuesta.get_structured_llm", lambda *a, **k: Redactor())
+    monkeypatch.setattr("src.poller.gmail_ingesta.cliente", lambda *a, **k: GmailDoble())
+
+    res = servicio.procesar_correo(dict(CORREO_CONSULTA))
+    final = servicio.resolver(res["thread_id"], "aprobar", "ok")
+
+    assert final["estado"] == "resuelto"                       # nada de riesgo: cierra solo
+    accion = final["resultado"]["acciones"][0]
+    assert accion["codigo"] == "RESPONDER_CON_PLANTILLA"
+    assert accion["estado"] == ejecucion.CONSULTADA
+    assert "ticket" not in accion["detalle"].lower()           # el ticket propio no se le cuenta al cliente
+
+    texto = capturado[-1]
+    assert "Consultado en los sistemas" in texto
+    assert "SVC-9310 Internet Dedicado 200 Mbps" in texto
+    assert "SVC-9312 Internet Dedicado 300 Mbps en Ocana" in texto
+    assert "CTO-3107" in texto and "6,200,000 COP" in texto
+    assert final["borrador"]["estado"] == "creado"
 
 
 # --------------------------------------------------------------------------- #

@@ -40,6 +40,9 @@ def acciones_de_correo(acciones: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _redactar_cierre(caso: dict[str, Any], resultado: dict[str, Any], cuerpo_original: str) -> RespuestaCliente:
     acciones = resultado.get("acciones", [])
     hechas = [f"- {a['detalle']}" for a in acciones if a.get("estado") == "ejecutada"]
+    # Lo que solo se leyo (el plan actual, una comparacion) es justo lo que una
+    # consulta espera de respuesta: sin esto el modelo acusaba recibo y nada mas.
+    consultadas = [f"- {a['detalle']}" for a in acciones if a.get("estado") == "consultada"]
     en_curso = [f"- {a['codigo']}: {a['detalle']}" for a in acciones
                 if a.get("estado") in ("derivada", "manual", "error")]
     pide_datos = any(a.get("estado") == "pendiente_cliente" for a in acciones)
@@ -60,6 +63,9 @@ def _redactar_cierre(caso: dict[str, Any], resultado: dict[str, Any], cuerpo_ori
         "",
         "Hecho y verificado en los sistemas:",
         *(hechas or ["- nada"]),
+        "",
+        "Consultado en los sistemas (informar al cliente):",
+        *(consultadas or ["- nada"]),
         "",
         "En curso:",
         *(en_curso or ["- nada"]),
