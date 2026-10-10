@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Envoltorio de scripts/care.sh, el equivalente de care.cmd para macOS / Linux.
+exec "$(dirname "$0")/scripts/care.sh" "$@"

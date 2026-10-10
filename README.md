@@ -366,11 +366,22 @@ python -m src.sistemas_web               # http://127.0.0.1:8002
 
 ## Levantarlo en local
 
+En Windows:
+
 ```powershell
 .\care.cmd up          # bandeja (:8000) + consola de sistemas (:8002) + poller de Gmail
 .\care.cmd sistemas    # solo la consola del sistema legado
 .\care.cmd estado      # qué corre y qué hay pendiente
 .\care.cmd stop        # para todo
+```
+
+En macOS / Linux, los mismos comandos con `./care` (envoltorio de `scripts/care.sh`):
+
+```bash
+./care up              # crea .venv con python3.12 (o 3.11+) si falta, e instala requirements
+./care estado
+./care stop
+PUERTO=8080 ./care ui  # los puertos e intervalo se cambian por variables de entorno
 ```
 
 `care.cmd demo` siembra el correo de ejemplo sin API key, y `care.cmd limpiar`
@@ -770,7 +781,7 @@ Reglas que sostienen la separación:
 | **`src/web/templates/`** | **`base.html`, `bandeja.html`, `caso.html`** |
 | **`src/sistemas_web/`** | **Consola del sistema legado, app aparte en `:8002` (ver "El agente y los sistemas son dos componentes")** |
 | `conftest.py` | Aísla las pruebas: BD temporal, checkpointer en RAM, modo fake |
-| `care.cmd` + `scripts/care.ps1` | Arranque local: levanta, para y reporta la bandeja, la consola de sistemas y el poller |
+| `care.cmd` + `scripts/care.ps1`, `care` + `scripts/care.sh` | Arranque local (Windows / macOS-Linux): levanta, para y reporta la bandeja, la consola de sistemas y el poller |
 | `src/agente/feedback.py` | ⏸ Persistencia en BD. Escrito pero **sin conectar** al grafo |
 | `src/agente/metricas.py` | ⏸ Métricas de Fase 2 como consultas. Depende de `feedback.py` |
 | `src/agente/migrar_feedback.py` | ⏸ Importa el `feedback.jsonl` a la BD cuando se retome |

@@ -23,7 +23,7 @@ credentials.json
 client_secret*.json
 token.json
 
-# Logs y PIDs del arranque local (scripts/care.ps1).
+# Logs y PIDs del arranque local (scripts/care.ps1 / scripts/care.sh).
 data/logs/
 data/.pids
 
