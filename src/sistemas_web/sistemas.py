@@ -148,6 +148,7 @@ SEMILLA: dict[str, list[dict[str, Any]]] = {
     ],
     "contacto": [
         {"correo": "ltrigosg@ufpso.edu.co", "cuenta_id": "B2B-005130", "nombre": "Leoneider Trigos", "autorizado": 1},
+        {"correo": "fredy.espana@htecgroup.com", "cuenta_id": "B2B-005130", "nombre": "Fredy Espana", "autorizado": 1},
     ],
     "nodo": [
         {"nodo": "BOG-N14", "capacidad_libre_mbps": 800, "estado": "saludable"},
